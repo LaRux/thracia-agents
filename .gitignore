@@ -1,0 +1,27 @@
+# Python environment managed by conda (conda activate thracia-agents)
+# Not stored in this directory — conda envs live in your Anaconda installation
+
+# Python bytecode — generated automatically when Python runs your code,
+# not source code, should never be committed
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated output data — too large and noisy for git history,
+# and may contain Roll20 data you don't want in a public repo
+data/output/
+
+# API keys and secrets — NEVER commit these
+# Store secrets in .env and load them with python-dotenv (added in Plan 02)
+.env
+*.env
+secrets.json
+
+# VS Code workspace settings — machine-specific, not useful to others
+.vscode/
+
+# macOS garbage files
+.DS_Store
+
+# pytest cache
+.pytest_cache/
