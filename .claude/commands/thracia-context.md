@@ -9,6 +9,7 @@ Built in Python (content generation) + JavaScript (Roll20 in-session tools) +
 Python MCP server (Phase 3 automation).
 
 **Project root:** C:\Users\lheur\Documents\thracia-agents\
+**GitHub:** https://github.com/LaRux/thracia-agents
 **Obsidian vault:** C:\Users\lheur\Documents\Obsidian Vault\
 **Spec:** docs/superpowers/specs/2026-03-21-thracia-roll20-automation-design.md (in vault)
 **Plans:** docs/superpowers/plans/ (in vault)
