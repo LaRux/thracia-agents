@@ -33,6 +33,7 @@ Python MCP server (Phase 3 automation).
 - Agents live in agents/in-progress/ while building, move to agents/done/ when complete
 - Roll20 NPC field schema documented in docs/roll20-npc-schema.md
 - 105 NPCs already exist in Roll20 — MonsterGen does gap analysis first
+- Roll20 export files staged in data/input/thracia-exports/ (characters + maps JSON)
 - 6 sheet gaps pre-identified — see plans/2026-03-21-03-pre-notes-sheet-auditor.md
 
 ## Git Log (as of Plan 01 completion)
