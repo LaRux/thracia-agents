@@ -108,8 +108,11 @@ def _parse_cr(cr_text):
     """Parse CR string like '3', '1/4', '1/2' into a float."""
     cr_text = cr_text.strip()
     if '/' in cr_text:
-        num, denom = cr_text.split('/')
-        return int(num) / int(denom)
+        try:
+            num, denom = cr_text.split('/', 1)
+            return int(num.strip()) / int(denom.strip())
+        except (ValueError, ZeroDivisionError):
+            return 0.0
     try:
         return float(cr_text)
     except ValueError:
@@ -135,7 +138,7 @@ def _parse_dex_modifier(block_text):
     The modifier line has parenthesized values. DEX is the 2nd entry.
     Returns the modifier as a signed string like '+1' or '-2'.
     """
-    mod_line_re = re.compile(r'^\s*\([+-]?\d+\)(?:\s+\([+-]?\d+\)){3,}', re.MULTILINE)
+    mod_line_re = re.compile(r'^\s*\([+-]?\d+\)(?:\s+\([+-]?\d+\)){1,}', re.MULTILINE)
     m = mod_line_re.search(block_text)
     if not m:
         return '+0'
@@ -235,12 +238,20 @@ def parse_5e_block(name, block_text):
     fort, ref, will = _parse_5e_saves(saves_text)
 
     # Actions block
-    actions_m = re.search(r'\bActions\b\s*\n(.*?)(?=\n[A-Z][a-z]|\Z)', block_text, re.DOTALL)
+    actions_m = re.search(
+        r'\bActions\b\s*\n(.*?)(?=\n(?:Reactions|Legendary Actions|Bonus Actions|Lair Actions)\b|\Z)',
+        block_text, re.DOTALL | re.IGNORECASE
+    )
     attacks_raw = actions_m.group(1).strip() if actions_m else ''
 
-    # Special abilities (text between type line and first section header)
-    sp_m = re.search(r'\n\n(.*?)(?=\n\n[A-Z])', block_text, re.DOTALL)
-    sp_raw = sp_m.group(1).strip() if sp_m else ''
+    # Special abilities: named trait paragraphs before the Actions section.
+    # We look for text between the last blank line after the stat block metadata
+    # and the first recognized section header.
+    sp_section_re = re.search(
+        r'Challenge.*?\n\n(.*?)(?=\n(?:Actions|Reactions|Legendary Actions|Bonus Actions|Lair Actions)\b|\Z)',
+        block_text, re.DOTALL | re.IGNORECASE
+    )
+    sp_raw = sp_section_re.group(1).strip() if sp_section_re else ''
 
     return {
         'name': name,
