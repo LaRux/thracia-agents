@@ -60,18 +60,28 @@ Commands:
     # -------------------------------------------------------------------------
     monster_parser = subparsers.add_parser(
         'monster',
-        help='Generate Roll20 NPC sheets from source material'
+        help='Parse stat blocks, run gap analysis, or generate Roll20 JSON'
     )
-    # mutually_exclusive_group means: provide --level OR --input, not both,
-    # not neither. required=True means at least one must be provided.
-    monster_group = monster_parser.add_mutually_exclusive_group(required=True)
-    monster_group.add_argument(
-        '--level', type=int,
-        help='Process all missing monsters for a dungeon level (e.g. --level 1)'
+    monster_action_group = monster_parser.add_mutually_exclusive_group(required=True)
+    monster_action_group.add_argument(
+        '--parse', action='store_true',
+        help='Parse dcc_statblocks.txt + lore_5e_sections.txt → master_monsters.csv'
     )
-    monster_group.add_argument(
-        '--input', type=str,
-        help='Process a single input file (e.g. --input data/input/gnoll.md)'
+    monster_action_group.add_argument(
+        '--gap-analysis', action='store_true', dest='gap_analysis',
+        help='Compare master_monsters.csv vs Roll20 export → gap_report.txt'
+    )
+    monster_action_group.add_argument(
+        '--generate', action='store_true',
+        help='Generate Roll20 JSON for monsters in gap_report.txt (use --name or --all)'
+    )
+    monster_parser.add_argument(
+        '--name', type=str,
+        help='Generate sheet for a single named monster (force-regenerate, bypasses gap report)'
+    )
+    monster_parser.add_argument(
+        '--all', action='store_true',
+        help='Generate sheets for all monsters listed in gap_report.txt'
     )
 
     # -------------------------------------------------------------------------
@@ -103,11 +113,7 @@ Commands:
     # -------------------------------------------------------------------------
     qa_parser = subparsers.add_parser(
         'qa',
-        help='Run QA validation on pending agent output'
-    )
-    qa_parser.add_argument(
-        '--input', type=str, required=True,
-        help='Directory of pending output to validate (e.g. data/output/pending/)'
+        help='Run QA validation on all files in data/output/pending/'
     )
 
     # -------------------------------------------------------------------------

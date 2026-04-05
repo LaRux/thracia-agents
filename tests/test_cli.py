@@ -27,20 +27,31 @@ def parse_args(args):
 
 
 class TestMonsterCommand:
-    def test_monster_with_level(self):
-        """'python run.py monster --level 1' should parse correctly."""
-        args = parse_args(['monster', '--level', '1'])
+    def test_monster_parse_flag(self):
+        args = parse_args(['monster', '--parse'])
         assert args.command == 'monster'
-        assert args.level == 1
+        assert args.parse is True
 
-    def test_monster_with_input_file(self):
-        """'python run.py monster --input path/to/file.md' should parse correctly."""
-        args = parse_args(['monster', '--input', 'data/input/gnoll.md'])
-        assert args.command == 'monster'
-        assert args.input == 'data/input/gnoll.md'
+    def test_monster_gap_analysis_flag(self):
+        args = parse_args(['monster', '--gap-analysis'])
+        assert args.gap_analysis is True
 
-    def test_monster_requires_level_or_input(self):
-        """'python run.py monster' with no flags should fail with a usage error."""
+    def test_monster_generate_with_name(self):
+        args = parse_args(['monster', '--generate', '--name', 'Stirge'])
+        assert args.generate is True
+        assert args.name == 'Stirge'
+
+    def test_monster_generate_with_all(self):
+        args = parse_args(['monster', '--generate', '--all'])
+        assert args.generate is True
+        assert args.all is True
+
+    def test_monster_generate_no_subarg_allowed(self):
+        # --generate with no --name or --all is allowed (treated as --all in handler)
+        args = parse_args(['monster', '--generate'])
+        assert args.generate is True
+
+    def test_monster_requires_action_flag(self):
         with pytest.raises(SystemExit):
             parse_args(['monster'])
 
@@ -60,10 +71,9 @@ class TestEncounterCommand:
 
 
 class TestQACommand:
-    def test_qa_with_input_dir(self):
-        args = parse_args(['qa', '--input', 'data/output/pending/'])
+    def test_qa_no_args(self):
+        args = parse_args(['qa'])
         assert args.command == 'qa'
-        assert args.input == 'data/output/pending/'
 
 
 class TestSheetCommand:
