@@ -110,3 +110,154 @@ class TestSplitDCCBlocks:
         text = STIRGE_BLOCK + "\n\n" + GNOLL_BLOCK
         blocks = split_dcc_blocks(text)
         assert 'Stirge' in blocks[0]
+
+
+from parse_statblocks import parse_5e_block, split_5e_blocks, _cr_to_hd
+
+CAVE_FISHER_BLOCK = """Cave Fisher
+Large monstrosity, unaligned
+
+Armor Class 16 (natural armor)
+Hit Points 58 (9d10 + 9)
+Speed 20 ft., climb 20 ft.
+
+STR  DEX  CON  INT  WIS  CHA
+16   13   12   1    10   3
+(+3) (+1) (+1) (-5) (0)  (-4)
+
+Saving Throws CON +3, WIS +2
+Challenge 3 (700 XP)"""
+
+ZOMBIE_BLOCK = """Zombie
+Medium undead, neutral evil
+
+Armor Class 8
+Hit Points 22 (3d8 + 9)
+Speed 20 ft.
+
+STR  DEX  CON  INT  WIS  CHA
+13   6    16   3    6    5
+(+1) (-2) (+3) (-4) (-2) (-3)
+
+Saving Throws WIS +0
+Challenge 1/4 (50 XP)"""
+
+GHOUL_BLOCK = """Ghoul
+Medium undead, chaotic evil
+
+Armor Class 12
+Hit Points 22 (5d8)
+Speed 30 ft.
+
+STR  DEX  CON  INT  WIS  CHA
+13   15   10   7    10   6
+(+1) (+2) (0)  (-2) (0)  (-2)
+
+Challenge 1 (200 XP)"""
+
+
+class TestParse5eBlock:
+    def test_name(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['name'] == 'Cave Fisher'
+
+    def test_ac(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['ac'] == '16'
+
+    def test_hp_avg(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['hp_avg'] == '58'
+
+    def test_cr3_maps_to_3d8(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['hd'] == '3d8'
+
+    def test_fort_from_con_save(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['fort'] == '+3'
+
+    def test_ref_absent_defaults_to_zero(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['ref'] == '+0'
+
+    def test_will_from_wis_save(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['will'] == '+2'
+
+    def test_init_from_dex_modifier(self):
+        # DEX modifier (+1) → init = "+1"
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['init'] == '+1'
+
+    def test_speed(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['speed'] == '20'
+
+    def test_alignment_unaligned_maps_to_N(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['alignment'] == 'N'
+
+    def test_alignment_neutral_evil_maps_to_N(self):
+        # NE is on the neutral axis — maps to N, not C
+        row = parse_5e_block('Zombie', ZOMBIE_BLOCK)
+        assert row['alignment'] == 'N'
+
+    def test_alignment_chaotic_evil_maps_to_C(self):
+        row = parse_5e_block('Ghoul', GHOUL_BLOCK)
+        assert row['alignment'] == 'C'
+
+    def test_source_is_5e(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['source'] == '5e'
+
+    def test_default_quantity(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['quantity'] == '1'
+
+    def test_default_act(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['act'] == '1d20'
+
+    def test_default_crit(self):
+        row = parse_5e_block('Cave Fisher', CAVE_FISHER_BLOCK)
+        assert row['crit'] == 'M/d6'
+
+
+class TestCRToHD:
+    def test_cr_quarter(self):
+        assert _cr_to_hd(0.25) == '1d6'
+
+    def test_cr_half(self):
+        assert _cr_to_hd(0.5) == '1d6'
+
+    def test_cr_1(self):
+        assert _cr_to_hd(1) == '1d8'
+
+    def test_cr_2(self):
+        assert _cr_to_hd(2) == '2d8'
+
+    def test_cr_3(self):
+        assert _cr_to_hd(3) == '3d8'
+
+    def test_cr_6(self):
+        assert _cr_to_hd(6) == '6d8'
+
+    def test_cr_less_than_quarter(self):
+        assert _cr_to_hd(0) == '1d4'
+
+
+class TestSplit5eBlocks:
+    def test_extract_by_name(self):
+        text = CAVE_FISHER_BLOCK + "\n\n" + ZOMBIE_BLOCK
+        blocks = split_5e_blocks(text)
+        assert 'cave fisher' in blocks
+        assert 'zombie' in blocks
+
+    def test_name_lookup_is_case_insensitive(self):
+        blocks = split_5e_blocks(CAVE_FISHER_BLOCK)
+        assert 'cave fisher' in blocks
+
+    def test_unknown_name_not_in_dict(self):
+        blocks = split_5e_blocks(CAVE_FISHER_BLOCK)
+        assert 'phase spider' not in blocks

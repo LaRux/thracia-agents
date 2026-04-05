@@ -84,3 +84,181 @@ def parse_dcc_block(text):
         'attacks_raw': attacks_raw, 'sp_raw': sp_raw, 'crit': crit,
         'source': 'dcc', 'notes': ''
     }
+
+
+# ---------------------------------------------------------------------------
+# 5e parsing
+# ---------------------------------------------------------------------------
+
+def _5e_alignment_to_dcc(alignment_text):
+    """Map 5e alignment string to DCC single character.
+
+    Mapping: lawful* → L, chaotic* → C, everything else (neutral, NE, NG, unaligned) → N.
+    Note: neutral evil (NE) maps to N — it is on the neutral axis, not chaotic.
+    """
+    text = alignment_text.lower().strip()
+    if 'lawful' in text:
+        return 'L'
+    if 'chaotic' in text:
+        return 'C'
+    return 'N'
+
+
+def _parse_cr(cr_text):
+    """Parse CR string like '3', '1/4', '1/2' into a float."""
+    cr_text = cr_text.strip()
+    if '/' in cr_text:
+        num, denom = cr_text.split('/')
+        return int(num) / int(denom)
+    try:
+        return float(cr_text)
+    except ValueError:
+        return 0.0
+
+
+def _cr_to_hd(cr):
+    """Map CR float to DCC HD string."""
+    if cr < 0.25:
+        return '1d4'
+    elif cr < 1:
+        return '1d6'
+    elif cr == 1:
+        return '1d8'
+    else:
+        n = int(cr)
+        return f'{n}d8'
+
+
+def _parse_dex_modifier(block_text):
+    """Extract DEX ability modifier from the ability score block.
+
+    The modifier line has parenthesized values. DEX is the 2nd entry.
+    Returns the modifier as a signed string like '+1' or '-2'.
+    """
+    mod_line_re = re.compile(r'^\s*\([+-]?\d+\)(?:\s+\([+-]?\d+\)){3,}', re.MULTILINE)
+    m = mod_line_re.search(block_text)
+    if not m:
+        return '+0'
+    tokens = re.findall(r'\(([+-]?\d+)\)', m.group())
+    if len(tokens) < 2:
+        return '+0'
+    val = tokens[1]  # DEX is index 1
+    if not val.startswith(('+', '-')):
+        val = '+' + val
+    return val
+
+
+def _parse_5e_saves(saves_text):
+    """Parse 'CON +3, DEX +1, WIS +2' into (fort, ref, will) strings.
+
+    Maps: CON → fort, DEX → ref, WIS → will.
+    Any save not mentioned defaults to '+0'.
+    """
+    def find(abbr):
+        m = re.search(rf'\b{abbr}\s+([+-]\d+)', saves_text or '', re.IGNORECASE)
+        return m.group(1) if m else '+0'
+    return find('CON'), find('DEX'), find('WIS')
+
+
+def _parse_5e_speed(speed_text):
+    """Extract (speed, fly) from '20 ft., climb 20 ft.' or '30 ft., fly 60 ft.'"""
+    speed_m = re.match(r'(\d+)', speed_text.strip())
+    speed = speed_m.group(1) if speed_m else ''
+    fly_m = re.search(r'fly\s+(\d+)', speed_text, re.IGNORECASE)
+    fly = fly_m.group(1) if fly_m else ''
+    return speed, fly
+
+
+def split_5e_blocks(text):
+    """Split 5e lore text into a dict of {name_lower: block_text}.
+
+    A block starts with a name line immediately followed by a type line
+    matching: <Size> <type>, <alignment>
+    """
+    type_line_re = re.compile(
+        r'^(Tiny|Small|Medium|Large|Huge|Gargantuan)\s+\S.*?,\s+\S',
+        re.IGNORECASE
+    )
+    lines = text.split('\n')
+    blocks = {}
+    current_name = None
+    current_lines = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        next_line = lines[i + 1] if i + 1 < len(lines) else ''
+        if next_line and type_line_re.match(next_line.strip()):
+            # This line is a creature name
+            if current_name is not None:
+                blocks[current_name.lower()] = '\n'.join(current_lines)
+            current_name = line.strip()
+            current_lines = [line, next_line]
+            i += 2
+        elif current_name is not None:
+            current_lines.append(line)
+            i += 1
+        else:
+            i += 1
+
+    if current_name is not None:
+        blocks[current_name.lower()] = '\n'.join(current_lines)
+    return blocks
+
+
+def parse_5e_block(name, block_text):
+    """Parse a 5e stat block string into a CSV row dict."""
+    def get(pattern, default=''):
+        m = re.search(pattern, block_text, re.IGNORECASE | re.DOTALL)
+        return m.group(1).strip() if m else default
+
+    type_line = re.search(
+        r'(Tiny|Small|Medium|Large|Huge|Gargantuan)\s+\S.*?,\s+(.+)',
+        block_text, re.IGNORECASE
+    )
+    alignment_text = type_line.group(2).strip() if type_line else ''
+    alignment = _5e_alignment_to_dcc(alignment_text)
+
+    ac = get(r'Armor Class\s+(\d+)')
+    hp_avg = get(r'Hit Points\s+(\d+)')
+
+    cr_text = get(r'Challenge\s+([\d/]+)')
+    cr = _parse_cr(cr_text)
+    hd = _cr_to_hd(cr)
+
+    speed_text = get(r'Speed\s+([^\n]+)')
+    speed, fly = _parse_5e_speed(speed_text)
+
+    init = _parse_dex_modifier(block_text)
+
+    saves_text = get(r'Saving Throws\s+([^\n]+)')
+    fort, ref, will = _parse_5e_saves(saves_text)
+
+    # Actions block
+    actions_m = re.search(r'\bActions\b\s*\n(.*?)(?=\n[A-Z][a-z]|\Z)', block_text, re.DOTALL)
+    attacks_raw = actions_m.group(1).strip() if actions_m else ''
+
+    # Special abilities (text between type line and first section header)
+    sp_m = re.search(r'\n\n(.*?)(?=\n\n[A-Z])', block_text, re.DOTALL)
+    sp_raw = sp_m.group(1).strip() if sp_m else ''
+
+    return {
+        'name': name,
+        'quantity': '1',
+        'hd': hd,
+        'hp_avg': hp_avg,
+        'ac': ac,
+        'init': init,
+        'speed': speed,
+        'fly': fly,
+        'act': '1d20',
+        'fort': fort,
+        'ref': ref,
+        'will': will,
+        'alignment': alignment,
+        'attacks_raw': attacks_raw,
+        'sp_raw': sp_raw,
+        'crit': 'M/d6',
+        'source': '5e',
+        'notes': ''
+    }
