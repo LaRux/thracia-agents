@@ -83,3 +83,99 @@ class TestPass1Check:
         sheet['ac'] = '10'  # should be int
         errors = pass1_check(sheet)
         assert any('ac' in e for e in errors)
+
+
+import shutil
+from unittest.mock import MagicMock, patch
+from qa_checker import pass2_check, route_sheet, run
+
+
+def make_mock_client(response_text):
+    client = MagicMock()
+    msg = MagicMock()
+    msg.content = [MagicMock(text=response_text)]
+    client.messages.create.return_value = msg
+    return client
+
+
+class TestPass2Check:
+    def test_pass_response_returns_pass(self):
+        client = make_mock_client("PASS Stats look appropriate for a small insect.")
+        result, reason = pass2_check(VALID_SHEET, client=client)
+        assert result == 'PASS'
+
+    def test_flag_response_returns_flag(self):
+        client = make_mock_client("FLAG will save of 10 is implausible for a mindless creature.")
+        result, reason = pass2_check(VALID_SHEET, client=client)
+        assert result == 'FLAG'
+        assert 'will save' in reason
+
+    def test_malformed_response_treated_as_flag(self):
+        client = make_mock_client("This sheet looks reasonable to me.")
+        result, reason = pass2_check(VALID_SHEET, client=client)
+        assert result == 'FLAG'
+        assert 'malformed' in reason
+
+
+class TestRouteSheet:
+    def test_passing_sheet_goes_to_ready(self, tmp_path):
+        pending = tmp_path / 'pending'
+        ready = tmp_path / 'ready'
+        flagged = tmp_path / 'flagged'
+        for d in [pending, ready, flagged]:
+            d.mkdir()
+        sheet_path = pending / 'stirge.json'
+        sheet_path.write_text(json.dumps(VALID_SHEET))
+
+        route_sheet(
+            sheet_path=str(sheet_path),
+            pass1_errors=[],
+            pass2_result='PASS',
+            pass2_reason='',
+            ready_dir=str(ready),
+            flagged_dir=str(flagged)
+        )
+        assert (ready / 'stirge.json').exists()
+        assert not (flagged / 'stirge.json').exists()
+
+    def test_failing_sheet_goes_to_flagged_with_report(self, tmp_path):
+        pending = tmp_path / 'pending'
+        ready = tmp_path / 'ready'
+        flagged = tmp_path / 'flagged'
+        for d in [pending, ready, flagged]:
+            d.mkdir()
+        sheet_path = pending / 'stirge.json'
+        sheet_path.write_text(json.dumps(VALID_SHEET))
+
+        route_sheet(
+            sheet_path=str(sheet_path),
+            pass1_errors=['Missing field: hd'],
+            pass2_result='PASS',
+            pass2_reason='',
+            ready_dir=str(ready),
+            flagged_dir=str(flagged)
+        )
+        assert (flagged / 'stirge.json').exists()
+        assert (flagged / 'stirge_qa_report.txt').exists()
+        assert not (ready / 'stirge.json').exists()
+
+    def test_pass2_flag_goes_to_flagged_with_report(self, tmp_path):
+        pending = tmp_path / 'pending'
+        ready = tmp_path / 'ready'
+        flagged = tmp_path / 'flagged'
+        for d in [pending, ready, flagged]:
+            d.mkdir()
+        sheet_path = pending / 'stirge.json'
+        sheet_path.write_text(json.dumps(VALID_SHEET))
+
+        route_sheet(
+            sheet_path=str(sheet_path),
+            pass1_errors=[],
+            pass2_result='FLAG',
+            pass2_reason='will save too high for an insect',
+            ready_dir=str(ready),
+            flagged_dir=str(flagged)
+        )
+        assert (flagged / 'stirge.json').exists()
+        report = (flagged / 'stirge_qa_report.txt').read_text()
+        assert 'will save' in report
