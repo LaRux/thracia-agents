@@ -47,6 +47,27 @@ def _parse_movement(mv_text):
     return speed, fly
 
 
+def _parse_crit(crit_raw):
+    """Extract (crit_die, crit_range) from raw crit text.
+
+    DCC crits optionally lead with a threat range (e.g. '19-20' or '22-24')
+    followed by a table/die pair (e.g. 'M/d10', 'III/d8', 'U/d8').
+
+    Returns:
+        crit_die:   primary table/die string, e.g. 'M/d10'
+        crit_range: threat range string, e.g. '19-20', or '' for standard (20)
+    """
+    crit_raw = crit_raw.strip()
+    # Optional threat range prefix: digits-digits (e.g. '19-20') or digits/digits (e.g. '19/20')
+    range_m = re.match(r'(\d+[-/]\d+)\s+', crit_raw)
+    crit_range = range_m.group(1) if range_m else ''
+    remainder = crit_raw[range_m.end():] if range_m else crit_raw
+    # Primary table/die: one or more letters (M, III, U, DN, G, V …) followed by /dN
+    die_m = re.match(r'([A-Za-z]+/d\d+)', remainder.strip())
+    crit_die = die_m.group(1) if die_m else crit_raw
+    return crit_die, crit_range
+
+
 def parse_dcc_block(text):
     """Parse a single DCC stat block string into a CSV row dict."""
     text = text.strip()
@@ -64,7 +85,8 @@ def parse_dcc_block(text):
     init = get(r'Init\s+([+-]\d+)')
     # Atk field ends at the next semicolon
     attacks_raw = get(r'Atk\s+(.*?)\s*;')
-    crit = get(r'Crit\s+([^\s;]+)')  # [^\s;]+ avoids capturing trailing semicolon
+    crit_raw = get(r'Crit\s+(.*?)\s*;')
+    crit, crit_range = _parse_crit(crit_raw)
     ac = get(r'AC\s+(\d+)')
     hd = get(r'HD\s+(\d+d\d+(?:[+-]\d+)?)')
     hp_avg = get(r'HD\s+\S+\s*\(hp\s+(\d+)')
@@ -83,7 +105,7 @@ def parse_dcc_block(text):
         'ac': ac, 'init': init, 'speed': speed, 'fly': fly, 'act': act,
         'fort': fort, 'ref': ref, 'will': will, 'alignment': alignment,
         'attacks_raw': attacks_raw, 'sp_raw': sp_raw, 'crit': crit,
-        'source': 'dcc', 'notes': ''
+        'source': 'dcc', 'notes': f'crit_range: {crit_range}' if crit_range else ''
     }
 
 

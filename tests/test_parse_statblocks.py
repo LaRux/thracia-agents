@@ -1,6 +1,6 @@
 # tests/test_parse_statblocks.py
 import pytest
-from parse_statblocks import parse_dcc_block, split_dcc_blocks, _parse_movement
+from parse_statblocks import parse_dcc_block, split_dcc_blocks, _parse_movement, _parse_crit
 
 STIRGE_BLOCK = (
     "Stirge (1d4): Init +6; Atk bite +0 melee (1d3+1 plus blood drain); Crit M/d4; "
@@ -13,6 +13,13 @@ GNOLL_BLOCK = (
     "Gnoll (2d6): Init +1; Atk spear +3 melee (1d8+2) / bite +1 melee (1d4); "
     "Crit M/d6; AC 14; HD 2d8+2 (hp 11 each); MV 30'; Act 1d20; "
     "SV Fort +3, Ref +1, Will +0; AL C."
+)
+
+# Block with a threat-range crit prefix: '19-20 M/d10'
+GNOLL_ALPHA_BLOCK = (
+    "Gnoll (alpha): Init +4; Atk bite +3 melee (1d3+3), twohanded sword +3 melee (1d10+3); "
+    "Crit 19-20 M/d10; AC 15; HD 4d12; MV 30'; Act 1d20; "
+    "SV Fort +3, Ref +2, Will +1; AL C."
 )
 
 
@@ -36,6 +43,19 @@ class TestParseDCCBlock:
     def test_crit(self):
         row = parse_dcc_block(STIRGE_BLOCK)
         assert row['crit'] == 'M/d4'
+
+    def test_crit_with_threat_range_returns_die_only(self):
+        # '19-20 M/d10' → crit should be 'M/d10', not '19-20'
+        row = parse_dcc_block(GNOLL_ALPHA_BLOCK)
+        assert row['crit'] == 'M/d10'
+
+    def test_crit_range_stored_in_notes(self):
+        row = parse_dcc_block(GNOLL_ALPHA_BLOCK)
+        assert row['notes'] == 'crit_range: 19-20'
+
+    def test_standard_crit_leaves_notes_empty(self):
+        row = parse_dcc_block(STIRGE_BLOCK)
+        assert row['notes'] == ''
 
     def test_ac(self):
         row = parse_dcc_block(STIRGE_BLOCK)
@@ -98,6 +118,44 @@ class TestParseDCCBlock:
         assert 'spear +3 melee (1d8+2)' in row['attacks_raw']
         assert 'bite +1 melee (1d4)' in row['attacks_raw']
         assert '/' in row['attacks_raw']
+
+
+class TestParseCrit:
+    def test_standard_crit(self):
+        die, rng = _parse_crit('M/d6')
+        assert die == 'M/d6'
+        assert rng == ''
+
+    def test_roman_numeral_table(self):
+        die, rng = _parse_crit('III/d8')
+        assert die == 'III/d8'
+        assert rng == ''
+
+    def test_threat_range_dash(self):
+        die, rng = _parse_crit('19-20 M/d10')
+        assert die == 'M/d10'
+        assert rng == '19-20'
+
+    def test_threat_range_slash(self):
+        # Some sources write '19/20' instead of '19-20'
+        die, rng = _parse_crit('19/20 U/d8')
+        assert die == 'U/d8'
+        assert rng == '19/20'
+
+    def test_extended_threat_range(self):
+        die, rng = _parse_crit('22-24 G/d4')
+        assert die == 'G/d4'
+        assert rng == '22-24'
+
+    def test_na_passthrough(self):
+        die, rng = _parse_crit('N/A')
+        assert die == 'N/A'
+        assert rng == ''
+
+    def test_space_in_die_notation(self):
+        # After source-file fix, spaces should be removed; but verify raw fallback
+        die, rng = _parse_crit('M/d8')
+        assert die == 'M/d8'
 
 
 class TestSplitDCCBlocks:
