@@ -166,7 +166,7 @@ def load_csv_by_name(name, csv_path=CSV_PATH):
     with open(csv_path, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            if row['name'].lower() == name.lower():
+            if row['name'].strip().lower() == name.strip().lower():
                 return row
     return None
 
