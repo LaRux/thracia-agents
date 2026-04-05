@@ -17,6 +17,10 @@
 
 import argparse
 import sys
+from pathlib import Path
+
+# Add agents to path so run.py can import them
+sys.path.insert(0, str(Path(__file__).parent / 'agents' / 'in-progress'))
 
 
 def build_parser():
@@ -140,26 +144,31 @@ Commands:
 
 
 def main():
-    """Parse arguments and dispatch to the appropriate agent.
-
-    Right now this prints a placeholder message for every command.
-    Each future plan will replace a placeholder with a real agent call.
-
-    WHY A DISPATCH TABLE?
-    The handlers dict maps command names to functions. This pattern is cleaner
-    than a long if/elif chain and makes it easy to see at a glance what each
-    command does. As agents are built, you replace the lambda placeholders with
-    real imports: e.g. 'monster': monster_gen.run
-    """
+    """Parse arguments and dispatch to the appropriate agent."""
     parser = build_parser()
     args = parser.parse_args()
 
-    # Placeholder handlers — replaced one by one as agents are built
+    import parse_statblocks
+    import gap_analysis
+    import monster_gen
+    import qa_checker
+
+    def handle_monster(a):
+        if a.parse:
+            parse_statblocks.run()
+        elif a.gap_analysis:
+            gap_analysis.run()
+        elif a.generate:
+            if a.name:
+                monster_gen.run_generate_name(a.name)
+            else:
+                monster_gen.run_generate_all()
+
     handlers = {
-        'monster':   lambda a: print(f"[MonsterGen] Not yet implemented. Args: {vars(a)}"),
+        'monster':   handle_monster,
         'room':      lambda a: print(f"[RoomGen] Not yet implemented. Args: {vars(a)}"),
         'encounter': lambda a: print(f"[EncounterGen] Not yet implemented. Args: {vars(a)}"),
-        'qa':        lambda a: print(f"[QAChecker] Not yet implemented. Args: {vars(a)}"),
+        'qa':        lambda a: qa_checker.run(),
         'sheet':     lambda a: print(f"[Sheet:{a.sheet_action}] Not yet implemented. Args: {vars(a)}"),
         'session':   lambda a: print(f"[Session:{a.session_action}] Not yet implemented. Args: {vars(a)}"),
     }

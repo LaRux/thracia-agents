@@ -1,10 +1,10 @@
 # Thracia Agents — Project Journal
 
 ## Current Sprint
-- **Phase:** Infrastructure complete — Phase 1 ready to begin
-- **Active task:** None — starting fresh
+- **Phase:** Phase 1 — Plan 02 complete
+- **Active task:** None — Plan 02 complete
 - **Blocked on:** —
-- **Next session goal:** Plan 02 — MonsterGen gap analysis + QAChecker
+- **Next session goal:** Plan 03 — SheetAuditor + SheetPatcher
 
 ## Completed
 - 2026-03-21 — System architecture designed and spec written
@@ -15,6 +15,7 @@
 - 2026-03-21 — run.py CLI scaffold with 9 passing tests
 - 2026-03-21 — PROGRESS.md, DECISIONS.md, skill files created
 - 2026-03-21 — Plan 01 (Project Continuity Infrastructure) complete
+- 2026-04-04 — Plan 02 complete: parse_statblocks, gap_analysis, monster_gen, qa_checker
 
 ## Backlog (ordered by priority)
 1. Phase 1: MonsterGen + QAChecker (Plan 02)
