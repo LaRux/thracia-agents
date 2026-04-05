@@ -3,14 +3,11 @@
 # Central CLI entry point for all Thracia agents.
 #
 # Usage examples:
-#   python run.py monster --level 1
-#   python run.py monster --input data/input/gnoll.md
-#   python run.py room --input "data/input/1-1 Entry Hall.md"
-#   python run.py encounter --level 1
-#   python run.py qa --input data/output/pending/
-#   python run.py sheet audit
-#   python run.py sheet patch
-#   python run.py session commit
+#   python run.py monster --parse
+#   python run.py monster --gap-analysis
+#   python run.py monster --generate --all
+#   python run.py monster --generate --name "Stirge"
+#   python run.py qa
 #
 # WHY ONE ENTRY POINT FOR EVERYTHING?
 # Having a single run.py means you always know how to invoke any agent — just
