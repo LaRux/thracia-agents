@@ -7,6 +7,7 @@
 #         data/input/monster-source/lore_5e_sections.txt
 # Output: data/input/master_monsters.csv
 
+import csv
 import re
 from pathlib import Path
 
@@ -273,3 +274,82 @@ def parse_5e_block(name, block_text):
         'source': '5e',
         'notes': ''
     }
+
+
+# ---------------------------------------------------------------------------
+# Merge + CSV write
+# ---------------------------------------------------------------------------
+
+MECHANIC_FIELDS = [
+    'ac', 'hd', 'hp_avg', 'init', 'fort', 'ref', 'will', 'speed', 'fly',
+    'act', 'attacks_raw', 'sp_raw', 'crit', 'quantity', 'alignment'
+]
+
+
+def merge_rows(dcc_row, five_e_row):
+    """Merge DCC (authoritative) and 5e rows. Returns a new row with source='both'."""
+    merged = dict(five_e_row)
+    for field in MECHANIC_FIELDS:
+        merged[field] = dcc_row[field]
+    merged['source'] = 'both'
+    merged['name'] = dcc_row['name']
+    return merged
+
+
+def run(
+    dcc_path='data/input/monster-source/dcc_statblocks.txt',
+    lore_path='data/input/monster-source/lore_5e_sections.txt',
+    csv_path='data/input/master_monsters.csv'
+):
+    """Parse source files and write master_monsters.csv.
+
+    Reads DCC text and (optionally) 5e lore text. Merges overlapping entries
+    with DCC as authoritative source. Writes result to master_monsters.csv.
+    """
+    dcc_rows = {}
+    dcc_text = Path(dcc_path).read_text(encoding='utf-8') if Path(dcc_path).exists() else ''
+    for block in split_dcc_blocks(dcc_text):
+        try:
+            row = parse_dcc_block(block)
+            dcc_rows[row['name'].lower()] = row
+        except ValueError as e:
+            print(f"[WARN] Skipping malformed DCC block: {e}")
+
+    lore_blocks = {}
+    if Path(lore_path).exists():
+        lore_text = Path(lore_path).read_text(encoding='utf-8')
+        lore_blocks = split_5e_blocks(lore_text)
+
+    five_e_rows = {}
+    for name_lower, block_text in lore_blocks.items():
+        try:
+            name_display = next(
+                (r for r in block_text.split('\n') if r.strip()), name_lower
+            ).strip()
+            row = parse_5e_block(name_display, block_text)
+            five_e_rows[name_lower] = row
+        except Exception as e:
+            print(f"[WARN] Skipping malformed 5e block '{name_lower}': {e}")
+
+    # Merge: DCC-only, 5e-only, both
+    all_names = set(dcc_rows.keys()) | set(five_e_rows.keys())
+    output_rows = []
+    for name_lower in sorted(all_names):
+        if name_lower in dcc_rows and name_lower in five_e_rows:
+            output_rows.append(merge_rows(dcc_rows[name_lower], five_e_rows[name_lower]))
+        elif name_lower in dcc_rows:
+            output_rows.append(dcc_rows[name_lower])
+        else:
+            output_rows.append(five_e_rows[name_lower])
+
+    Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(output_rows)
+
+    print(f"Wrote {len(output_rows)} monsters to {csv_path}")
+
+
+if __name__ == '__main__':
+    run()

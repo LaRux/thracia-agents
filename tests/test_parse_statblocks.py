@@ -296,3 +296,73 @@ class TestSplit5eBlocks:
     def test_unknown_name_not_in_dict(self):
         blocks = split_5e_blocks(CAVE_FISHER_BLOCK)
         assert 'phase spider' not in blocks
+
+
+from parse_statblocks import merge_rows, run
+import csv
+import io
+
+STIRGE_ROW = parse_dcc_block(STIRGE_BLOCK)
+STIRGE_5E_ROW = {
+    'name': 'Stirge', 'quantity': '1', 'hd': '1d8', 'hp_avg': '100',
+    'ac': '99', 'init': '+1', 'speed': '5', 'fly': '', 'act': '1d20',
+    'fort': '+99', 'ref': '+99', 'will': '+99', 'alignment': 'L',
+    'attacks_raw': '5e_attack', 'sp_raw': '5e_sp', 'crit': 'M/d12',
+    'source': '5e', 'notes': ''
+}
+
+
+class TestMergeRows:
+    def test_dcc_authoritative_for_ac(self):
+        merged = merge_rows(STIRGE_ROW, STIRGE_5E_ROW)
+        assert merged['ac'] == '10'  # DCC value, not 5e's '99'
+
+    def test_dcc_authoritative_for_init(self):
+        merged = merge_rows(STIRGE_ROW, STIRGE_5E_ROW)
+        assert merged['init'] == '+6'
+
+    def test_source_becomes_both(self):
+        merged = merge_rows(STIRGE_ROW, STIRGE_5E_ROW)
+        assert merged['source'] == 'both'
+
+    def test_name_preserved(self):
+        merged = merge_rows(STIRGE_ROW, STIRGE_5E_ROW)
+        assert merged['name'] == 'Stirge'
+
+
+class TestRunLorePreservation:
+    """When source='both', the 5e lore block must remain in the lore index
+    (accessible via split_5e_blocks) for Stage 3 flavor text lookup.
+    The merge only affects the CSV fields — the lore index is separate.
+    """
+    def test_both_source_lore_block_still_in_5e_index(self, tmp_path):
+        from parse_statblocks import split_5e_blocks, run as parse_run
+
+        dcc_path = tmp_path / 'dcc_statblocks.txt'
+        dcc_path.write_text(STIRGE_BLOCK, encoding='utf-8')
+
+        # A minimal 5e block for Stirge
+        stirge_5e = (
+            "Stirge\n"
+            "Tiny beast, unaligned\n\n"
+            "Armor Class 10\n"
+            "Hit Points 2 (1d4)\n"
+            "Speed 10 ft., fly 40 ft.\n\n"
+            "STR  DEX  CON  INT  WIS  CHA\n"
+            "4    16   11   2    8    6\n"
+            "(-3) (+3) (0)  (-4) (-1) (-2)\n\n"
+            "Challenge 1/8 (25 XP)\n"
+        )
+        lore_path = tmp_path / 'lore_5e_sections.txt'
+        lore_path.write_text(stirge_5e, encoding='utf-8')
+        csv_path = tmp_path / 'master_monsters.csv'
+
+        parse_run(
+            dcc_path=str(dcc_path),
+            lore_path=str(lore_path),
+            csv_path=str(csv_path)
+        )
+
+        # The lore index must still contain 'stirge' so Stage 3 can retrieve it
+        lore_blocks = split_5e_blocks(lore_path.read_text(encoding='utf-8'))
+        assert 'stirge' in lore_blocks
