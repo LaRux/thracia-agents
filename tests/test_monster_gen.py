@@ -98,3 +98,139 @@ class TestBuildDescription:
     def test_contains_morale(self):
         desc = build_description(STIRGE_ROW, armor_str='AC: P10/S10/B10')
         assert 'Morale DC:' in desc
+
+
+import json
+from unittest.mock import patch, MagicMock
+from monster_gen import generate_sheet, load_csv_by_name
+
+MOCK_CLAUDE_RESPONSE = json.dumps({
+    "armor_str": "AC: P10/S10/B10",
+    "sp": "Blood drain: on hit, target loses 1 Stamina (DC 7 Fort negates).",
+    "attacks": [
+        {"name": "Bite", "attack": "+0", "damage": "1d3+1", "type": "piercing"}
+    ],
+    "morale_dc": 11
+})
+
+SCHEMA_CONTENT = "# Roll20 NPC Schema\nField reference."
+
+
+class TestGenerateSheet:
+    def _mock_claude(self, response_text):
+        mock_client = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text=response_text)]
+        mock_client.messages.create.return_value = mock_msg
+        return mock_client
+
+    def test_output_contains_is_npc(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['is_npc'] == 1
+
+    def test_output_name_preserved(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['name'] == 'Stirge'
+
+    def test_alignment_converted_to_words(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['alignment'] == 'chaotic'
+
+    def test_fort_is_int_without_plus(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['fort'] == 2
+        assert isinstance(sheet['fort'], int)
+
+    def test_init_is_int_without_plus(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['init'] == 6
+
+    def test_hit_points_structure(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['hit_points'] == {'current': 4, 'max': 4}
+
+    def test_attack_1_keys_present(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert 'repeating_attacks_-npc_attack_1_name' in sheet
+        assert 'repeating_attacks_-npc_attack_1_attack' in sheet
+        assert 'repeating_attacks_-npc_attack_1_damage' in sheet
+        assert 'repeating_attacks_-npc_attack_1_type' in sheet
+
+    def test_attack_1_name_value(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['repeating_attacks_-npc_attack_1_name'] == 'Bite'
+
+    def test_sp_field_populated(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert 'Blood drain' in sheet['sp']
+
+    def test_description_contains_armor_str(self):
+        client = self._mock_claude(MOCK_CLAUDE_RESPONSE)
+        sheet = generate_sheet(STIRGE_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert 'AC: P10/S10/B10' in sheet['description']
+
+    def test_multi_attack_generates_multiple_keys(self):
+        multi_row = dict(STIRGE_ROW)
+        multi_row['attacks_raw'] = 'claw +2 melee (1d4) / claw +2 melee (1d4) / bite +4 melee (1d8)'
+        multi_response = json.dumps({
+            "armor_str": "AC: P10/S10/B10",
+            "sp": "",
+            "attacks": [
+                {"name": "Claw", "attack": "+2", "damage": "1d4", "type": "slashing"},
+                {"name": "Claw", "attack": "+2", "damage": "1d4", "type": "slashing"},
+                {"name": "Bite", "attack": "+4", "damage": "1d8", "type": "piercing"},
+            ],
+            "morale_dc": 11
+        })
+        client = self._mock_claude(multi_response)
+        sheet = generate_sheet(multi_row, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert 'repeating_attacks_-npc_attack_3_name' in sheet
+
+    def test_empty_attacks_raw_generates_unarmed_strike(self):
+        no_attack_row = dict(FISHER_ROW)
+        no_attack_row['attacks_raw'] = ''
+        unarmed_response = json.dumps({
+            "armor_str": "AC: P16/S16/B16",
+            "sp": "",
+            "attacks": [
+                {"name": "Unarmed Strike", "attack": "+0", "damage": "1d3",
+                 "type": "bludgeoning"}
+            ],
+            "morale_dc": 11
+        })
+        client = self._mock_claude(unarmed_response)
+        sheet = generate_sheet(no_attack_row, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['repeating_attacks_-npc_attack_1_name'] == 'Unarmed Strike'
+
+    def test_empty_sp_raw_gives_empty_sp(self):
+        client = self._mock_claude(json.dumps({
+            "armor_str": "AC: P16/S16/B16",
+            "sp": "",
+            "attacks": [{"name": "Filament", "attack": "+5", "damage": "special",
+                         "type": "piercing"}],
+            "morale_dc": 11
+        }))
+        sheet = generate_sheet(FISHER_ROW, schema=SCHEMA_CONTENT,
+                               lore_block='', client=client)
+        assert sheet['sp'] == ''

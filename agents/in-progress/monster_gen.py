@@ -61,3 +61,111 @@ def build_description(row, armor_str, morale_dc=11):
     if row.get('notes'):
         parts.append(row['notes'])
     return ' '.join(parts)
+
+
+def _build_prompt(row, schema, lore_block):
+    """Build the Claude prompt for monster sheet generation."""
+    lore_section = f"\n\n5e lore block:\n{lore_block}" if lore_block else ""
+    return f"""You are generating a Roll20 NPC sheet for a DCC RPG campaign.
+
+Monster CSV data:
+{json.dumps(row, indent=2)}
+
+Roll20 schema reference:
+{schema}
+{lore_section}
+
+Generate a JSON object with these fields:
+- armor_str: armor vector string like "AC: P10/S10/B10"
+  - Natural armor creatures (beasts, monstrosities, undead): all vectors equal ac
+  - Armored humanoids: use the equipment table (chain mail = S17/P15/B13, etc.)
+  - Shield adds +1 to all vectors
+- sp: expanded special ability text (empty string if sp_raw is empty)
+- attacks: list of attack objects, one per attack in attacks_raw (split on "/")
+  Each attack: {{"name": str, "attack": str (with sign, e.g. "+0"), "damage": str, "type": str}}
+  If attacks_raw is empty: generate one placeholder Unarmed Strike (+0, 1d3, bludgeoning)
+  Attack type inferred from name: bite/filament→piercing, claw/talon→slashing, slam/crush→bludgeoning
+- morale_dc: integer, default 11; increase to 13-15 for fear auras or fanatical creatures
+
+Return ONLY the JSON object, no other text."""
+
+
+def generate_sheet(row, schema, lore_block, client=None):
+    """Generate a complete Roll20 JSON sheet for one monster.
+
+    Args:
+        row: dict from master_monsters.csv
+        schema: contents of docs/roll20-npc-schema.md
+        lore_block: 5e lore text for this monster (empty string if none)
+        client: anthropic.Anthropic() client (injectable for testing)
+
+    Returns:
+        dict: complete Roll20 JSON sheet
+    """
+    if client is None:
+        client = anthropic.Anthropic()
+
+    prompt = _build_prompt(row, schema, lore_block)
+    message = client.messages.create(
+        model='claude-opus-4-5',
+        max_tokens=2048,
+        messages=[{'role': 'user', 'content': prompt}]
+    )
+    response_text = message.content[0].text.strip()
+
+    # Strip markdown code fences if present
+    if response_text.startswith('```'):
+        response_text = re.sub(r'^```\w*\n?', '', response_text)
+        response_text = re.sub(r'\n?```$', '', response_text.strip())
+
+    claude_data = json.loads(response_text)
+
+    # Build the Roll20 sheet
+    sheet = {
+        'is_npc': 1,
+        'name': row['name'],
+        'hd': row['hd'],
+        'hit_points': build_hit_points(row['hp_avg']),
+        'ac': int(row['ac']),
+        'fort': strip_sign(row['fort']),
+        'ref': strip_sign(row['ref']),
+        'will': strip_sign(row['will']),
+        'init': strip_sign(row['init']),
+        'act': row['act'],
+        'speed': row['speed'],
+        'alignment': alignment_to_words(row['alignment']),
+        'sp': claude_data.get('sp', ''),
+        'description': build_description(
+            row,
+            armor_str=claude_data['armor_str'],
+            morale_dc=claude_data.get('morale_dc', 11)
+        )
+    }
+
+    # Expand attacks into repeating_attacks_* keys
+    for i, attack in enumerate(claude_data.get('attacks', []), start=1):
+        prefix = f'repeating_attacks_-npc_attack_{i}'
+        sheet[f'{prefix}_name'] = attack['name']
+        sheet[f'{prefix}_attack'] = attack['attack']
+        sheet[f'{prefix}_damage'] = attack['damage']
+        sheet[f'{prefix}_type'] = attack['type']
+
+    return sheet
+
+
+def load_csv_by_name(name, csv_path=CSV_PATH):
+    """Load a single monster row from master_monsters.csv by name.
+
+    Args:
+        name: monster name to look up (case-insensitive)
+        csv_path: path to the CSV file
+
+    Returns:
+        dict: row matching the name, or None if not found
+    """
+    with open(csv_path, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['name'].lower() == name.lower():
+                return row
+    return None
