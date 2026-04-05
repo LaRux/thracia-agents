@@ -169,3 +169,86 @@ def load_csv_by_name(name, csv_path=CSV_PATH):
             if row['name'].lower() == name.lower():
                 return row
     return None
+
+
+def load_all_csv(csv_path=CSV_PATH):
+    """Return all rows from master_monsters.csv as a list of dicts."""
+    with open(csv_path, newline='', encoding='utf-8') as f:
+        return list(csv.DictReader(f))
+
+
+def write_sheet(sheet, pending_dir=PENDING_DIR):
+    """Write a Roll20 JSON sheet to pending_dir/<sanitized_name>.json."""
+    Path(pending_dir).mkdir(parents=True, exist_ok=True)
+    filename = sanitize_filename(sheet['name'])
+    path = Path(pending_dir) / filename
+    path.write_text(json.dumps(sheet, indent=2), encoding='utf-8')
+    print(f"  Wrote {path}")
+
+
+def _get_lore_block(name, lore_path=LORE_PATH):
+    """Return the 5e lore block for a monster name, or empty string."""
+    if not Path(lore_path).exists():
+        return ''
+    from parse_statblocks import split_5e_blocks
+    text = Path(lore_path).read_text(encoding='utf-8')
+    blocks = split_5e_blocks(text)
+    return blocks.get(name.strip().lower(), '')
+
+
+def run_generate_all(
+    gap_report_path=GAP_REPORT_PATH,
+    csv_path=CSV_PATH,
+    pending_dir=PENDING_DIR,
+    client=None
+):
+    """Generate sheets for all monsters in gap_report.txt."""
+    # Missing file treated as empty
+    if not Path(gap_report_path).exists():
+        print("No gaps found. Nothing to generate.")
+        return
+
+    names = [
+        line.strip()
+        for line in Path(gap_report_path).read_text(encoding='utf-8').splitlines()
+        if line.strip()
+    ]
+    if not names:
+        print("No gaps found. Nothing to generate.")
+        return
+
+    schema = Path(SCHEMA_PATH).read_text(encoding='utf-8') if Path(SCHEMA_PATH).exists() else ''
+    if client is None:
+        client = anthropic.Anthropic()
+
+    for name in names:
+        row = load_csv_by_name(name, csv_path)
+        if not row:
+            print(f"[WARN] '{name}' in gap report but not in CSV — skipping")
+            continue
+        lore = _get_lore_block(name)
+        print(f"Generating: {name}")
+        sheet = generate_sheet(row, schema=schema, lore_block=lore, client=client)
+        write_sheet(sheet, pending_dir)
+
+
+def run_generate_name(
+    name,
+    csv_path=CSV_PATH,
+    pending_dir=PENDING_DIR,
+    client=None
+):
+    """Generate a sheet for a single named monster (bypasses gap report)."""
+    row = load_csv_by_name(name, csv_path)
+    if not row:
+        print(f"Error: Monster '{name}' not found in master_monsters.csv")
+        sys.exit(1)
+
+    schema = Path(SCHEMA_PATH).read_text(encoding='utf-8') if Path(SCHEMA_PATH).exists() else ''
+    if client is None:
+        client = anthropic.Anthropic()
+
+    lore = _get_lore_block(name)
+    print(f"Generating: {name}")
+    sheet = generate_sheet(row, schema=schema, lore_block=lore, client=client)
+    write_sheet(sheet, pending_dir)

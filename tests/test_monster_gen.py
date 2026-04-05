@@ -100,9 +100,10 @@ class TestBuildDescription:
         assert 'Morale DC:' in desc
 
 
+import csv
 import json
 from unittest.mock import patch, MagicMock
-from monster_gen import generate_sheet, load_csv_by_name
+from monster_gen import generate_sheet, load_csv_by_name, write_sheet, run_generate_all, run_generate_name
 
 MOCK_CLAUDE_RESPONSE = json.dumps({
     "armor_str": "AC: P10/S10/B10",
@@ -234,3 +235,95 @@ class TestGenerateSheet:
         sheet = generate_sheet(FISHER_ROW, schema=SCHEMA_CONTENT,
                                lore_block='', client=client)
         assert sheet['sp'] == ''
+
+
+class TestLoadCSVByName:
+    def test_finds_monster_by_name(self, tmp_path):
+        csv_path = tmp_path / 'master_monsters.csv'
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['name', 'hp_avg'])
+            writer.writeheader()
+            writer.writerow({'name': 'Stirge', 'hp_avg': '4'})
+        row = load_csv_by_name('Stirge', str(csv_path))
+        assert row['hp_avg'] == '4'
+
+    def test_returns_none_for_missing_monster(self, tmp_path):
+        csv_path = tmp_path / 'master_monsters.csv'
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['name'])
+            writer.writeheader()
+        row = load_csv_by_name('Stirge', str(csv_path))
+        assert row is None
+
+
+class TestWriteSheet:
+    def test_writes_json_file(self, tmp_path):
+        pending = tmp_path / 'pending'
+        pending.mkdir()
+        sheet = {'name': 'Stirge', 'is_npc': 1}
+        write_sheet(sheet, str(pending))
+        assert (pending / 'stirge.json').exists()
+
+    def test_overwrites_existing_file(self, tmp_path):
+        pending = tmp_path / 'pending'
+        pending.mkdir()
+        (pending / 'stirge.json').write_text('{"old": true}')
+        sheet = {'name': 'Stirge', 'is_npc': 1}
+        write_sheet(sheet, str(pending))
+        data = json.loads((pending / 'stirge.json').read_text())
+        assert 'old' not in data
+
+    def test_empty_gap_report_prints_no_gaps(self, tmp_path, capsys):
+        report = tmp_path / 'gap_report.txt'
+        report.write_text('')
+        csv_path = tmp_path / 'master_monsters.csv'
+        csv_path.write_text('name\n')
+        run_generate_all(
+            gap_report_path=str(report),
+            csv_path=str(csv_path),
+            pending_dir=str(tmp_path / 'pending')
+        )
+        captured = capsys.readouterr()
+        assert 'No gaps found' in captured.out
+
+    def test_missing_gap_report_prints_no_gaps(self, tmp_path, capsys):
+        csv_path = tmp_path / 'master_monsters.csv'
+        csv_path.write_text('name\n')
+        run_generate_all(
+            gap_report_path=str(tmp_path / 'nonexistent_gap_report.txt'),
+            csv_path=str(csv_path),
+            pending_dir=str(tmp_path / 'pending')
+        )
+        captured = capsys.readouterr()
+        assert 'No gaps found' in captured.out
+
+
+class TestRunGenerateName:
+    def test_missing_monster_exits_nonzero(self, tmp_path):
+        csv_path = tmp_path / 'master_monsters.csv'
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['name'])
+            writer.writeheader()
+        with pytest.raises(SystemExit) as exc:
+            run_generate_name('Nonexistent', csv_path=str(csv_path))
+        assert exc.value.code != 0
+
+    def test_generate_name_bypasses_gap_report(self, tmp_path):
+        """--name should generate even if monster is not in gap_report.txt."""
+        from unittest.mock import patch, MagicMock
+        # CSV has Stirge; gap_report is empty (Stirge already in Roll20)
+        csv_path = tmp_path / 'master_monsters.csv'
+        from parse_statblocks import CSV_COLUMNS
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+            writer.writeheader()
+            writer.writerow({col: STIRGE_ROW.get(col, '') for col in CSV_COLUMNS})
+        pending = tmp_path / 'pending'
+        mock_sheet = {'name': 'Stirge', 'is_npc': 1}
+        with patch('monster_gen.generate_sheet', return_value=mock_sheet):
+            run_generate_name(
+                'Stirge',
+                csv_path=str(csv_path),
+                pending_dir=str(pending)
+            )
+        assert (pending / 'stirge.json').exists()
