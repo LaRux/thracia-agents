@@ -25,3 +25,4 @@ secrets.json
 
 # pytest cache
 .pytest_cache/
+.worktrees/

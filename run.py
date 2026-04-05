@@ -3,14 +3,11 @@
 # Central CLI entry point for all Thracia agents.
 #
 # Usage examples:
-#   python run.py monster --level 1
-#   python run.py monster --input data/input/gnoll.md
-#   python run.py room --input "data/input/1-1 Entry Hall.md"
-#   python run.py encounter --level 1
-#   python run.py qa --input data/output/pending/
-#   python run.py sheet audit
-#   python run.py sheet patch
-#   python run.py session commit
+#   python run.py monster --parse
+#   python run.py monster --gap-analysis
+#   python run.py monster --generate --all
+#   python run.py monster --generate --name "Stirge"
+#   python run.py qa
 #
 # WHY ONE ENTRY POINT FOR EVERYTHING?
 # Having a single run.py means you always know how to invoke any agent — just
@@ -20,6 +17,10 @@
 
 import argparse
 import sys
+from pathlib import Path
+
+# Add agents to path so run.py can import them
+sys.path.insert(0, str(Path(__file__).parent / 'agents' / 'in-progress'))
 
 
 def build_parser():
@@ -60,18 +61,28 @@ Commands:
     # -------------------------------------------------------------------------
     monster_parser = subparsers.add_parser(
         'monster',
-        help='Generate Roll20 NPC sheets from source material'
+        help='Parse stat blocks, run gap analysis, or generate Roll20 JSON'
     )
-    # mutually_exclusive_group means: provide --level OR --input, not both,
-    # not neither. required=True means at least one must be provided.
-    monster_group = monster_parser.add_mutually_exclusive_group(required=True)
-    monster_group.add_argument(
-        '--level', type=int,
-        help='Process all missing monsters for a dungeon level (e.g. --level 1)'
+    monster_action_group = monster_parser.add_mutually_exclusive_group(required=True)
+    monster_action_group.add_argument(
+        '--parse', action='store_true',
+        help='Parse dcc_statblocks.txt + lore_5e_sections.txt → master_monsters.csv'
     )
-    monster_group.add_argument(
-        '--input', type=str,
-        help='Process a single input file (e.g. --input data/input/gnoll.md)'
+    monster_action_group.add_argument(
+        '--gap-analysis', action='store_true', dest='gap_analysis',
+        help='Compare master_monsters.csv vs Roll20 export → gap_report.txt'
+    )
+    monster_action_group.add_argument(
+        '--generate', action='store_true',
+        help='Generate Roll20 JSON for monsters in gap_report.txt (use --name or --all)'
+    )
+    monster_parser.add_argument(
+        '--name', type=str,
+        help='Generate sheet for a single named monster (force-regenerate, bypasses gap report)'
+    )
+    monster_parser.add_argument(
+        '--all', action='store_true',
+        help='Generate sheets for all monsters listed in gap_report.txt'
     )
 
     # -------------------------------------------------------------------------
@@ -103,11 +114,7 @@ Commands:
     # -------------------------------------------------------------------------
     qa_parser = subparsers.add_parser(
         'qa',
-        help='Run QA validation on pending agent output'
-    )
-    qa_parser.add_argument(
-        '--input', type=str, required=True,
-        help='Directory of pending output to validate (e.g. data/output/pending/)'
+        help='Run QA validation on all files in data/output/pending/'
     )
 
     # -------------------------------------------------------------------------
@@ -137,26 +144,31 @@ Commands:
 
 
 def main():
-    """Parse arguments and dispatch to the appropriate agent.
-
-    Right now this prints a placeholder message for every command.
-    Each future plan will replace a placeholder with a real agent call.
-
-    WHY A DISPATCH TABLE?
-    The handlers dict maps command names to functions. This pattern is cleaner
-    than a long if/elif chain and makes it easy to see at a glance what each
-    command does. As agents are built, you replace the lambda placeholders with
-    real imports: e.g. 'monster': monster_gen.run
-    """
+    """Parse arguments and dispatch to the appropriate agent."""
     parser = build_parser()
     args = parser.parse_args()
 
-    # Placeholder handlers — replaced one by one as agents are built
+    import parse_statblocks
+    import gap_analysis
+    import monster_gen
+    import qa_checker
+
+    def handle_monster(a):
+        if a.parse:
+            parse_statblocks.run()
+        elif a.gap_analysis:
+            gap_analysis.run()
+        elif a.generate:
+            if a.name:
+                monster_gen.run_generate_name(a.name)
+            else:
+                monster_gen.run_generate_all()
+
     handlers = {
-        'monster':   lambda a: print(f"[MonsterGen] Not yet implemented. Args: {vars(a)}"),
+        'monster':   handle_monster,
         'room':      lambda a: print(f"[RoomGen] Not yet implemented. Args: {vars(a)}"),
         'encounter': lambda a: print(f"[EncounterGen] Not yet implemented. Args: {vars(a)}"),
-        'qa':        lambda a: print(f"[QAChecker] Not yet implemented. Args: {vars(a)}"),
+        'qa':        lambda a: qa_checker.run(),
         'sheet':     lambda a: print(f"[Sheet:{a.sheet_action}] Not yet implemented. Args: {vars(a)}"),
         'session':   lambda a: print(f"[Session:{a.session_action}] Not yet implemented. Args: {vars(a)}"),
     }
