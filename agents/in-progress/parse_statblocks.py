@@ -7,7 +7,6 @@
 #         data/input/monster-source/lore_5e_sections.txt
 # Output: data/input/master_monsters.csv
 
-import csv
 import re
 from pathlib import Path
 
@@ -64,13 +63,13 @@ def parse_dcc_block(text):
     init = get(r'Init\s+([+-]\d+)')
     # Atk field ends at the next semicolon
     attacks_raw = get(r'Atk\s+(.*?)\s*;')
-    crit = get(r'Crit\s+([^\s;]+)')
+    crit = get(r'Crit\s+([^\s;]+)')  # [^\s;]+ avoids capturing trailing semicolon
     ac = get(r'AC\s+(\d+)')
-    hd = get(r'HD\s+(\S+)')
+    hd = get(r'HD\s+(\d+d\d+(?:[+-]\d+)?)')
     hp_avg = get(r'HD\s+\S+\s*\(hp\s+(\d+)')
     mv_text = get(r'MV\s+(.*?)\s*;')
     speed, fly = _parse_movement(mv_text)
-    act = get(r'Act\s+([^\s;]+)')
+    act = get(r'Act\s+([^\s;]+)')  # [^\s;]+ avoids capturing trailing semicolon
     # SP is optional; terminated by "; SV"
     sp_raw = get(r'\bSP\s+(.*?)\s*;\s*SV\b')
     fort = get(r'Fort\s+([+-]\d+)')
