@@ -118,16 +118,20 @@ Commands:
     )
 
     # -------------------------------------------------------------------------
-    # sheet command — has sub-actions: audit and patch
+    # sheet command — has flags: --audit and --patch
     # -------------------------------------------------------------------------
     sheet_parser = subparsers.add_parser(
         'sheet',
-        help='Audit or patch the Roll20 DCC character sheet'
+        help='Audit or patch existing Roll20 NPC sheets'
     )
-    sheet_subparsers = sheet_parser.add_subparsers(dest='sheet_action')
-    sheet_subparsers.required = True
-    sheet_subparsers.add_parser('audit', help='Generate gap report between sheet and homebrew rules')
-    sheet_subparsers.add_parser('patch', help='Generate annotated patch proposals for the sheet')
+    sheet_parser.add_argument(
+        '--audit', action='store_true',
+        help='Audit all NPC sheets in the Roll20 export → audit_report.md + audit_report.json'
+    )
+    sheet_parser.add_argument(
+        '--patch', action='store_true',
+        help='Write replacement sheets for patchable NPCs → data/output/pending/ (requires prior --audit)'
+    )
 
     # -------------------------------------------------------------------------
     # session command — has sub-actions: commit
@@ -169,7 +173,7 @@ def main():
         'room':      lambda a: print(f"[RoomGen] Not yet implemented. Args: {vars(a)}"),
         'encounter': lambda a: print(f"[EncounterGen] Not yet implemented. Args: {vars(a)}"),
         'qa':        lambda a: qa_checker.run(),
-        'sheet':     lambda a: print(f"[Sheet:{a.sheet_action}] Not yet implemented. Args: {vars(a)}"),
+        'sheet':     lambda a: print(f"[Sheet] Not yet implemented. Args: {vars(a)}"),
         'session':   lambda a: print(f"[Session:{a.session_action}] Not yet implemented. Args: {vars(a)}"),
     }
 
