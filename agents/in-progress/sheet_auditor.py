@@ -196,3 +196,15 @@ def write_audit_report_json(records, path=AUDIT_REPORT_JSON):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(records, indent=2), encoding='utf-8')
     print(f"  Wrote {path}")
+
+
+def run(characters_path=CHARACTERS_PATH):
+    """Main entry point: audit all NPCs and write both report files."""
+    print(f"Reading {characters_path}...")
+    records = audit_characters(characters_path)
+    write_audit_report_md(records)
+    write_audit_report_json(records)
+    clean = sum(1 for r in records if not r['issues'])
+    patchable = sum(1 for r in records if r['patchable'])
+    manual = sum(1 for r in records if r['issues'] and not r['patchable'])
+    print(f"  {len(records)} NPCs: {clean} clean, {patchable} patchable, {manual} manual review needed")
