@@ -118,3 +118,35 @@ def check_sheet(character):
 
     patchable = bool(issues) and all_patchable
     return issues, patchable, fixes
+
+
+def assemble_full_sheet(character, fixes):
+    """
+    Build a complete Roll20-ready sheet from character fields with fixes applied.
+    All existing fields are carried over unchanged except where fixes override them.
+    """
+    fields = dict(character.get('fields', {}))
+    fields.update(fixes)
+    return {'name': character['name'], **fields}
+
+
+def audit_characters(characters_path=CHARACTERS_PATH):
+    """
+    Run audit on all active NPCs. Returns list of audit records:
+        [{'name', 'patchable', 'issues', 'full_sheet'}, ...]
+    full_sheet is set only for patchable records; None otherwise.
+    """
+    characters = load_characters(characters_path)
+    records = []
+    for character in characters:
+        if not is_npc(character):
+            continue
+        issues, patchable, fixes = check_sheet(character)
+        full_sheet = assemble_full_sheet(character, fixes) if patchable else None
+        records.append({
+            'name': character['name'],
+            'patchable': patchable,
+            'issues': issues,
+            'full_sheet': full_sheet,
+        })
+    return records

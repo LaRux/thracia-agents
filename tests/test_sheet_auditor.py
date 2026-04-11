@@ -2,7 +2,7 @@
 import json
 import pytest
 from pathlib import Path
-from sheet_auditor import load_characters, is_npc, check_sheet
+from sheet_auditor import load_characters, is_npc, check_sheet, assemble_full_sheet, audit_characters
 
 
 def make_char(name='Gnoll', is_npc_val='1', archived=False, extra_fields=None):
@@ -153,3 +153,62 @@ class TestCheckSheet:
             make_npc(overrides={'hit_points': 0, 'ac': None})
         )
         assert patchable is False
+
+
+class TestAssembleFullSheet:
+    def test_carries_over_all_existing_fields(self):
+        npc = make_npc()
+        sheet = assemble_full_sheet(npc, {})
+        assert sheet['hd'] == '2d8'
+        assert sheet['name'] == 'Gnoll'
+        assert sheet['is_npc'] == '1'
+
+    def test_fixes_override_existing_fields(self):
+        npc = make_npc(overrides={'hit_points': 0})
+        fixes = {'hit_points': {'current': 9, 'max': 9}}
+        sheet = assemble_full_sheet(npc, fixes)
+        assert sheet['hit_points'] == {'current': 9, 'max': 9}
+
+    def test_attack_fields_carried_over(self):
+        npc = make_npc()
+        sheet = assemble_full_sheet(npc, {})
+        assert sheet['repeating_attacks_-abc_name'] == 'Bite'
+
+
+class TestAuditCharacters:
+    def test_filters_out_pcs(self, tmp_path):
+        data = [
+            make_char('PC', is_npc_val='0'),
+            make_npc('Gnoll'),
+        ]
+        f = tmp_path / 'chars.json'
+        f.write_text(json.dumps(data))
+        records = audit_characters(str(f))
+        assert len(records) == 1
+        assert records[0]['name'] == 'Gnoll'
+
+    def test_clean_npc_has_empty_issues(self, tmp_path):
+        data = [make_npc('Gnoll')]
+        f = tmp_path / 'chars.json'
+        f.write_text(json.dumps(data))
+        records = audit_characters(str(f))
+        assert records[0]['issues'] == []
+        assert records[0]['patchable'] is False
+        assert records[0]['full_sheet'] is None
+
+    def test_patchable_npc_has_full_sheet(self, tmp_path):
+        data = [make_npc('Gnoll', overrides={'hit_points': 0})]
+        f = tmp_path / 'chars.json'
+        f.write_text(json.dumps(data))
+        records = audit_characters(str(f))
+        assert records[0]['patchable'] is True
+        assert records[0]['full_sheet'] is not None
+        assert records[0]['full_sheet']['hit_points']['max'] == 9
+
+    def test_non_patchable_npc_has_no_full_sheet(self, tmp_path):
+        data = [make_npc('Boss', overrides={'ac': None})]
+        f = tmp_path / 'chars.json'
+        f.write_text(json.dumps(data))
+        records = audit_characters(str(f))
+        assert records[0]['patchable'] is False
+        assert records[0]['full_sheet'] is None
