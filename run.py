@@ -157,6 +157,7 @@ def main():
     import monster_gen
     import qa_checker
     import sheet_auditor
+    import sheet_patcher
 
     def handle_monster(a):
         if a.parse:
@@ -173,7 +174,7 @@ def main():
         if a.audit:
             sheet_auditor.run()
         if a.patch:
-            print("[SheetPatcher] Not yet implemented.")
+            sheet_patcher.run_patch()
         if not a.audit and not a.patch:
             print("Specify --audit, --patch, or both. See --help.")
 
