@@ -150,3 +150,49 @@ def audit_characters(characters_path=CHARACTERS_PATH):
             'full_sheet': full_sheet,
         })
     return records
+
+
+def write_audit_report_md(records, path=AUDIT_REPORT_MD):
+    """Write human-readable audit summary to path."""
+    today = date.today().isoformat()
+    clean = [r for r in records if not r['issues']]
+    patchable = [r for r in records if r['patchable']]
+    manual = [r for r in records if r['issues'] and not r['patchable']]
+
+    lines = [
+        f"# Sheet Audit Report — {today}",
+        "",
+        "## Summary",
+        f"- NPCs audited: {len(records)}",
+        f"- Clean sheets: {len(clean)}",
+        f"- Patchable issues: {len(patchable)}",
+        f"- Manual review needed: {len(manual)}",
+        "",
+    ]
+
+    if patchable:
+        lines += ["## Patchable", "| NPC | Issues |", "|---|---|"]
+        for r in patchable:
+            lines.append(f"| {r['name']} | {'; '.join(r['issues'])} |")
+        lines.append("")
+
+    if manual:
+        lines += ["## Manual Review Needed", "| NPC | Issues |", "|---|---|"]
+        for r in manual:
+            lines.append(f"| {r['name']} | {'; '.join(r['issues'])} |")
+        lines.append("")
+
+    if clean:
+        lines += ["## Clean", ""]
+        lines += [f"- {r['name']}" for r in clean]
+
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text('\n'.join(lines), encoding='utf-8')
+    print(f"  Wrote {path}")
+
+
+def write_audit_report_json(records, path=AUDIT_REPORT_JSON):
+    """Write machine-readable audit records to path."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(records, indent=2), encoding='utf-8')
+    print(f"  Wrote {path}")

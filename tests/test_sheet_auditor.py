@@ -2,7 +2,10 @@
 import json
 import pytest
 from pathlib import Path
-from sheet_auditor import load_characters, is_npc, check_sheet, assemble_full_sheet, audit_characters
+from sheet_auditor import (
+    load_characters, is_npc, check_sheet, assemble_full_sheet,
+    audit_characters, write_audit_report_md, write_audit_report_json
+)
 
 
 def make_char(name='Gnoll', is_npc_val='1', archived=False, extra_fields=None):
@@ -212,3 +215,58 @@ class TestAuditCharacters:
         records = audit_characters(str(f))
         assert records[0]['patchable'] is False
         assert records[0]['full_sheet'] is None
+
+
+class TestWriteAuditReportMd:
+    def _make_records(self):
+        return [
+            {'name': 'Clean Gnoll', 'patchable': False, 'issues': [], 'full_sheet': None},
+            {'name': 'Broken Gnoll', 'patchable': True,
+             'issues': ['hit_points: 0 — recomputed from hd (9)'], 'full_sheet': {'name': 'Broken Gnoll'}},
+            {'name': 'Bad Boss', 'patchable': False,
+             'issues': ['missing ac — manual review'], 'full_sheet': None},
+        ]
+
+    def test_creates_file(self, tmp_path):
+        path = tmp_path / 'report.md'
+        write_audit_report_md(self._make_records(), path=str(path))
+        assert path.exists()
+
+    def test_summary_counts_correct(self, tmp_path):
+        path = tmp_path / 'report.md'
+        write_audit_report_md(self._make_records(), path=str(path))
+        content = path.read_text()
+        assert 'NPCs audited: 3' in content
+        assert 'Clean sheets: 1' in content
+        assert 'Patchable issues: 1' in content
+        assert 'Manual review needed: 1' in content
+
+    def test_sections_present(self, tmp_path):
+        path = tmp_path / 'report.md'
+        write_audit_report_md(self._make_records(), path=str(path))
+        content = path.read_text()
+        assert '## Patchable' in content
+        assert '## Manual Review Needed' in content
+        assert '## Clean' in content
+        assert 'Broken Gnoll' in content
+        assert 'Bad Boss' in content
+        assert 'Clean Gnoll' in content
+
+
+class TestWriteAuditReportJson:
+    def test_creates_valid_json(self, tmp_path):
+        records = [{'name': 'Gnoll', 'patchable': False, 'issues': [], 'full_sheet': None}]
+        path = tmp_path / 'report.json'
+        write_audit_report_json(records, path=str(path))
+        data = json.loads(path.read_text())
+        assert data[0]['name'] == 'Gnoll'
+
+    def test_preserves_all_records(self, tmp_path):
+        records = [
+            {'name': 'A', 'patchable': True, 'issues': ['x'], 'full_sheet': {'name': 'A'}},
+            {'name': 'B', 'patchable': False, 'issues': [], 'full_sheet': None},
+        ]
+        path = tmp_path / 'report.json'
+        write_audit_report_json(records, path=str(path))
+        data = json.loads(path.read_text())
+        assert len(data) == 2
