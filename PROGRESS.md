@@ -1,10 +1,10 @@
 # Thracia Agents — Project Journal
 
 ## Current Sprint
-- **Phase:** Phase 1 — Plan 02 complete
-- **Active task:** None — Plan 02 complete
+- **Phase:** Phase 1 — Plan 03 complete
+- **Active task:** None
 - **Blocked on:** —
-- **Next session goal:** Plan 03 — SheetAuditor + SheetPatcher
+- **Next session goal:** Plan 04 — RoomGen + EncounterGen
 
 ## Completed
 - 2026-03-21 — System architecture designed and spec written
@@ -16,10 +16,11 @@
 - 2026-03-21 — PROGRESS.md, DECISIONS.md, skill files created
 - 2026-03-21 — Plan 01 (Project Continuity Infrastructure) complete
 - 2026-04-04 — Plan 02 complete: parse_statblocks, gap_analysis, monster_gen, qa_checker
+- 2026-04-11 — Plan 03 complete: utils, sheet_auditor, sheet_patcher — 66 NPCs audited, 58 patched, 8 manual
 
 ## Backlog (ordered by priority)
-1. Phase 1: MonsterGen + QAChecker (Plan 02)
-2. Phase 1: SheetAuditor + SheetPatcher (Plan 03)
+1. ~~Phase 1: MonsterGen + QAChecker (Plan 02)~~ ✓
+2. ~~Phase 1: SheetAuditor + SheetPatcher (Plan 03)~~ ✓
 3. Phase 1: RoomGen + EncounterGen (Plan 04)
 4. Phase 2: TurnTracker + ResourceManager (Plan 05)
 5. Phase 2: MoraleBot + ConditionTracker (Plan 06)
