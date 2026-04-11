@@ -27,8 +27,9 @@ ALIGNMENT_MAP = {'C': 'chaotic', 'L': 'lawful', 'N': 'neutral'}
 
 
 def strip_sign(value):
-    """Strip leading '+' from a signed number string. Preserve '-'. Return int."""
-    return int(str(value).lstrip('+'))
+    """Strip leading '+' from a signed number string. Preserve '-'. Return int. Blank → 0."""
+    s = str(value).strip().lstrip('+')
+    return int(s) if s else 0
 
 
 def alignment_to_words(code):
@@ -43,9 +44,14 @@ def sanitize_filename(name):
     return safe + '.json'
 
 
-def build_hit_points(hp_avg):
-    """Build Roll20 hit_points object from hp_avg string."""
-    val = int(hp_avg)
+def build_hit_points(hp_avg, hd=None):
+    """Build Roll20 hit_points object from hp_avg string. Falls back to hd average if hp_avg is empty."""
+    if hp_avg:
+        val = int(hp_avg)
+    elif hd:
+        val = average_from_hd(hd)
+    else:
+        raise ValueError("hp_avg is empty and no hd provided to compute average")
     return {'current': val, 'max': val}
 
 
@@ -127,7 +133,7 @@ def generate_sheet(row, schema, lore_block, client=None):
         'is_npc': 1,
         'name': row['name'],
         'hd': row['hd'],
-        'hit_points': build_hit_points(row['hp_avg']),
+        'hit_points': build_hit_points(row['hp_avg'], hd=row.get('hd')),
         'ac': int(row['ac']),
         'fort': strip_sign(row['fort']),
         'ref': strip_sign(row['ref']),
