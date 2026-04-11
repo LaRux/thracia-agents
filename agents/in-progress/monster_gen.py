@@ -15,6 +15,8 @@ from pathlib import Path
 
 import anthropic
 
+from utils import average_from_hd
+
 CSV_PATH = 'data/input/master_monsters.csv'
 SCHEMA_PATH = 'docs/roll20-npc-schema.md'
 LORE_PATH = 'data/input/monster-source/lore_5e_sections.txt'
