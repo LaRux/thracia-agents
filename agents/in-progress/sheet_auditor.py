@@ -32,3 +32,89 @@ def is_npc(character):
         return False
     npc_flag = character.get('fields', {}).get('is_npc')
     return npc_flag == '1' or npc_flag is True
+
+
+def check_sheet(character):
+    """
+    Run all quality checks on a single NPC character.
+
+    Returns:
+        issues (list[str]): human-readable description of each problem found
+        patchable (bool): True only if issues exist AND all are auto-fixable
+        fixes (dict): field -> corrected value for each patchable issue
+    """
+    fields = character.get('fields', {})
+    issues = []
+    all_patchable = True
+    fixes = {}
+
+    # Non-patchable required fields: if absent, the sheet cannot be auto-patched
+    for field in NON_PATCHABLE_REQUIRED:
+        if not fields.get(field):
+            issues.append(f"missing {field} — manual review")
+            all_patchable = False
+
+    # hit_points check
+    hp = fields.get('hit_points')
+    hd = fields.get('hd', '')
+    hp_valid = isinstance(hp, dict) and hp.get('max', 0) > 0
+    if not hp_valid:
+        if hd:
+            try:
+                avg = average_from_hd(hd)
+                issues.append(f"hit_points invalid — recomputed from hd ({avg})")
+                fixes['hit_points'] = {'current': avg, 'max': avg}
+            except ValueError:
+                issues.append("hit_points invalid and hd unparseable — manual review")
+                all_patchable = False
+        else:
+            issues.append("hit_points invalid and hd missing — manual review")
+            all_patchable = False
+    elif hd:
+        # Consistency check: max vs hd average (>20% drift → recompute)
+        try:
+            avg = average_from_hd(hd)
+            max_hp = hp.get('max', 0)
+            if avg > 0 and abs(max_hp - avg) / avg > 0.20:
+                issues.append(
+                    f"hit_points.max ({max_hp}) differs >20% from hd average ({avg}) — recomputed"
+                )
+                fixes['hit_points'] = {'current': avg, 'max': avg}
+        except ValueError:
+            pass  # hd unparseable — skip consistency check
+
+    # act: only flag if absent or blank (any non-empty value is valid)
+    if not str(fields.get('act', '')).strip():
+        issues.append("missing act — defaulting to '1d20'")
+        fixes['act'] = '1d20'
+
+    # alignment: missing → patchable default; present but invalid → manual
+    alignment = str(fields.get('alignment', '')).strip().lower()
+    if not alignment:
+        issues.append("missing alignment — defaulting to 'neutral'")
+        fixes['alignment'] = 'neutral'
+    elif alignment not in VALID_ALIGNMENTS:
+        issues.append(f"alignment {alignment!r} not valid — manual review")
+        all_patchable = False
+
+    # Numeric fields: unparseable → manual (can't derive correct value)
+    for field in NUMERIC_FIELDS:
+        val = fields.get(field, '')
+        if val != '' and val is not None:
+            try:
+                int(str(val).strip().lstrip('+'))
+            except (ValueError, TypeError):
+                issues.append(f"{field} not parseable as int ({val!r}) — manual review")
+                all_patchable = False
+
+    # At least one attack entry required
+    has_attack = any(
+        fields[k] for k in fields
+        if re.match(r'repeating_attacks_.+_name', k)
+    )
+    if not has_attack:
+        issues.append("no attack entries — manual review")
+        all_patchable = False
+
+    patchable = bool(issues) and all_patchable
+    return issues, patchable, fixes

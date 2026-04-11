@@ -2,7 +2,7 @@
 import json
 import pytest
 from pathlib import Path
-from sheet_auditor import load_characters, is_npc
+from sheet_auditor import load_characters, is_npc, check_sheet
 
 
 def make_char(name='Gnoll', is_npc_val='1', archived=False, extra_fields=None):
@@ -39,3 +39,117 @@ class TestLoadCharacters:
         result = load_characters(str(f))
         assert len(result) == 2
         assert result[0]['name'] == 'A'
+
+
+def make_npc(name='Gnoll', overrides=None, archived=False):
+    """Build a fully valid NPC character. Use overrides to introduce specific issues.
+    Pass None as a value to remove that field entirely."""
+    fields = {
+        'is_npc': '1',
+        'hd': '2d8',
+        'hit_points': {'current': 9, 'max': 9},
+        'ac': '14',
+        'fort': '2',
+        'ref': '1',
+        'will': '0',
+        'init': '+1',
+        'act': '1d20',
+        'sp': '',
+        'description': 'AC: P14/S14/B12.',
+        'alignment': 'neutral',
+        'repeating_attacks_-abc_name': 'Bite',
+        'repeating_attacks_-abc_bonus': '+2',
+        'repeating_attacks_-abc_damage': '1d6',
+    }
+    if overrides:
+        for key, val in overrides.items():
+            if val is None:
+                fields.pop(key, None)  # None means "remove the field entirely"
+            else:
+                fields[key] = val
+    return {'name': name, 'archived': archived, 'fields': fields}
+
+
+class TestCheckSheet:
+    def test_clean_sheet_no_issues(self):
+        issues, patchable, fixes = check_sheet(make_npc())
+        assert issues == []
+        assert patchable is False  # nothing to patch on a clean sheet
+
+    def test_zero_hit_points_is_patchable(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'hit_points': 0}))
+        assert any('hit_points' in i for i in issues)
+        assert patchable is True
+        assert fixes['hit_points'] == {'current': 9, 'max': 9}  # 2d8 avg = 9
+
+    def test_dict_hit_points_zero_max_is_patchable(self):
+        issues, patchable, fixes = check_sheet(
+            make_npc(overrides={'hit_points': {'current': 0, 'max': 0}})
+        )
+        assert patchable is True
+        assert fixes['hit_points']['max'] == 9
+
+    def test_hit_points_consistency_recomputed(self):
+        # hd=2d8 avg=9, max=3 is >20% drift
+        issues, patchable, fixes = check_sheet(
+            make_npc(overrides={'hit_points': {'current': 3, 'max': 3}})
+        )
+        assert any('hit_points' in i for i in issues)
+        assert fixes['hit_points']['max'] == 9
+
+    def test_hit_points_within_20pct_is_clean(self):
+        # hd=2d8 avg=9, max=8 is <20% drift — acceptable
+        issues, patchable, fixes = check_sheet(
+            make_npc(overrides={'hit_points': {'current': 8, 'max': 8}})
+        )
+        assert not any('hit_points' in i for i in issues)
+
+    def test_missing_hd_is_not_patchable(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'hd': None}))
+        assert any('missing hd' in i for i in issues)
+        assert patchable is False
+
+    def test_missing_ac_is_not_patchable(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'ac': None}))
+        assert any('missing ac' in i for i in issues)
+        assert patchable is False
+
+    def test_missing_act_defaults_to_1d20(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'act': ''}))
+        assert any('act' in i for i in issues)
+        assert fixes.get('act') == '1d20'
+        assert patchable is True
+
+    def test_special_act_value_not_flagged(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'act': 'special'}))
+        assert not any('act' in i for i in issues)
+
+    def test_missing_alignment_defaults_to_neutral(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'alignment': ''}))
+        assert fixes.get('alignment') == 'neutral'
+        assert patchable is True
+
+    def test_invalid_alignment_not_patchable(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'alignment': 'evil'}))
+        assert any('alignment' in i for i in issues)
+        assert patchable is False
+
+    def test_no_attacks_not_patchable(self):
+        npc = make_npc()
+        npc['fields'] = {k: v for k, v in npc['fields'].items()
+                         if not k.startswith('repeating_attacks')}
+        issues, patchable, fixes = check_sheet(npc)
+        assert any('attack' in i for i in issues)
+        assert patchable is False
+
+    def test_unparseable_numeric_field_not_patchable(self):
+        issues, patchable, fixes = check_sheet(make_npc(overrides={'fort': 'X'}))
+        assert any('fort' in i for i in issues)
+        assert patchable is False
+
+    def test_mixed_issues_one_non_patchable_means_manual(self):
+        # hit_points=0 (patchable) + missing ac (not patchable) → overall not patchable
+        issues, patchable, fixes = check_sheet(
+            make_npc(overrides={'hit_points': 0, 'ac': None})
+        )
+        assert patchable is False
