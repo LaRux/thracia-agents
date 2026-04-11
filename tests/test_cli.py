@@ -77,15 +77,20 @@ class TestQACommand:
 
 
 class TestSheetCommand:
-    def test_sheet_audit(self):
-        args = parse_args(['sheet', 'audit'])
+    def test_sheet_audit_flag(self):
+        args = parse_args(['sheet', '--audit'])
         assert args.command == 'sheet'
-        assert args.sheet_action == 'audit'
+        assert args.audit is True
 
-    def test_sheet_patch(self):
-        args = parse_args(['sheet', 'patch'])
+    def test_sheet_patch_flag(self):
+        args = parse_args(['sheet', '--patch'])
         assert args.command == 'sheet'
-        assert args.sheet_action == 'patch'
+        assert args.patch is True
+
+    def test_sheet_audit_and_patch_together(self):
+        args = parse_args(['sheet', '--audit', '--patch'])
+        assert args.audit is True
+        assert args.patch is True
 
 
 class TestSessionCommand:

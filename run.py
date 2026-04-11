@@ -118,16 +118,20 @@ Commands:
     )
 
     # -------------------------------------------------------------------------
-    # sheet command — has sub-actions: audit and patch
+    # sheet command — has flags: --audit and --patch
     # -------------------------------------------------------------------------
     sheet_parser = subparsers.add_parser(
         'sheet',
-        help='Audit or patch the Roll20 DCC character sheet'
+        help='Audit or patch existing Roll20 NPC sheets'
     )
-    sheet_subparsers = sheet_parser.add_subparsers(dest='sheet_action')
-    sheet_subparsers.required = True
-    sheet_subparsers.add_parser('audit', help='Generate gap report between sheet and homebrew rules')
-    sheet_subparsers.add_parser('patch', help='Generate annotated patch proposals for the sheet')
+    sheet_parser.add_argument(
+        '--audit', action='store_true',
+        help='Audit all NPC sheets in the Roll20 export → audit_report.md + audit_report.json'
+    )
+    sheet_parser.add_argument(
+        '--patch', action='store_true',
+        help='Write replacement sheets for patchable NPCs → data/output/pending/ (requires prior --audit)'
+    )
 
     # -------------------------------------------------------------------------
     # session command — has sub-actions: commit
@@ -152,6 +156,8 @@ def main():
     import gap_analysis
     import monster_gen
     import qa_checker
+    import sheet_auditor
+    import sheet_patcher
 
     def handle_monster(a):
         if a.parse:
@@ -164,12 +170,20 @@ def main():
             else:
                 monster_gen.run_generate_all()
 
+    def handle_sheet(a):
+        if a.audit:
+            sheet_auditor.run()
+        if a.patch:
+            sheet_patcher.run_patch()
+        if not a.audit and not a.patch:
+            print("Specify --audit, --patch, or both. See --help.")
+
     handlers = {
         'monster':   handle_monster,
         'room':      lambda a: print(f"[RoomGen] Not yet implemented. Args: {vars(a)}"),
         'encounter': lambda a: print(f"[EncounterGen] Not yet implemented. Args: {vars(a)}"),
         'qa':        lambda a: qa_checker.run(),
-        'sheet':     lambda a: print(f"[Sheet:{a.sheet_action}] Not yet implemented. Args: {vars(a)}"),
+        'sheet':     handle_sheet,
         'session':   lambda a: print(f"[Session:{a.session_action}] Not yet implemented. Args: {vars(a)}"),
     }
 

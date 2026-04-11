@@ -36,6 +36,9 @@ class TestStripSign:
     def test_returns_int(self):
         assert isinstance(strip_sign('+3'), int)
 
+    def test_empty_string_returns_zero(self):
+        assert strip_sign('') == 0
+
 
 class TestAlignmentToWords:
     def test_C_is_chaotic(self):
@@ -68,6 +71,11 @@ class TestBuildHitPoints:
     def test_values_are_integers(self):
         hp = build_hit_points('4')
         assert isinstance(hp['max'], int)
+
+    def test_falls_back_to_hd_when_hp_avg_empty(self):
+        hp = build_hit_points('', hd='10d12')
+        assert hp['max'] == 65
+        assert hp['current'] == hp['max']
 
 
 class TestBuildDescription:
