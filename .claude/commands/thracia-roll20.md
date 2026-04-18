@@ -67,4 +67,4 @@ First tool to build: pull_character_summary (read-only)
 4. No faction field on NPCs — MEDIUM priority
 5. No spellburn tracking — MEDIUM priority
 6. Patron field empty — LOW priority
-Full details: docs/superpowers/plans/2026-03-21-03-pre-notes-sheet-auditor.md (in vault)
+Full details: docs/superpowers/plans/2026-03-21-03-pre-notes-sheet-auditor.md

@@ -11,14 +11,14 @@ Python MCP server (Phase 3 automation).
 **Project root:** C:\Users\lheur\Documents\thracia-agents\
 **GitHub:** https://github.com/LaRux/thracia-agents
 **Obsidian vault:** C:\Users\lheur\Documents\Obsidian Vault\
-**Spec:** docs/superpowers/specs/2026-03-21-thracia-roll20-automation-design.md (in vault)
-**Plans:** docs/superpowers/plans/ (in vault)
+**Spec:** docs/superpowers/specs/2026-03-21-thracia-roll20-automation-design.md
+**Plans:** docs/superpowers/plans/
 
 ## Current Status
-- **Phase:** Infrastructure complete — Phase 1 ready to begin
-- **Last completed:** Plan 01 — full project scaffold, run.py CLI, tracking docs, skill files
+- **Phase:** Phase 1 — Content Generation (in progress)
+- **Last completed:** Plan 03 — SheetAuditor + SheetPatcher (NPC sheet quality audit and auto-patch pipeline)
 - **Active task:** None — starting fresh
-- **Next goal:** Plan 02 — MonsterGen gap analysis + QAChecker
+- **Next goal:** Plan 04 — RoomGen + EncounterGen
 
 ## Environment
 - Python: conda environment named thracia-agents
@@ -34,14 +34,40 @@ Python MCP server (Phase 3 automation).
 - Roll20 NPC field schema documented in docs/roll20-npc-schema.md
 - 105 NPCs already exist in Roll20 — MonsterGen does gap analysis first
 - Roll20 export files staged in data/input/thracia-exports/ (characters + maps JSON)
-- 6 sheet gaps pre-identified — see plans/2026-03-21-03-pre-notes-sheet-auditor.md
+- SheetAuditor reads thracia-characters.json, audits all active NPCs (is_npc="1", archived=false)
+- SheetAuditor produces audit_report.md (human review) + audit_report.json (machine input)
+- SheetPatcher reads audit_report.json, writes full replacement sheets to data/output/pending/
+- average_from_hd helper lives in agents/in-progress/utils.py (shared by MonsterGen + SheetAuditor)
+- strip_sign returns 0 for blank strings; build_hit_points falls back to hd average if hp_avg empty
 
-## Git Log (as of Plan 01 completion)
+## Git Log (as of Plan 03 completion)
 1. chore: initialize project with Python dependencies and gitignore
 2. chore: create project folder structure and phase status files
 3. feat: add run.py CLI scaffold with 9 passing argument parsing tests
 4. docs: add project journal and architectural decisions log
 5. feat: add Claude skill files for session context loading
+— Plan 02 (MonsterGen + QAChecker) —
+6. feat: add DCC stat block parser with 22 passing tests
+7. feat: add 5e stat block parser with CR->HD table and alignment mapping
+8. feat: add merge logic and CSV writer to parse_statblocks
+9. feat: add gap_analysis module with 10 passing tests
+10. feat: add monster_gen deterministic transforms with 19 passing tests
+11. feat: add Claude API integration for monster sheet generation, 13 passing tests
+12. feat: add monster_gen CLI dispatch and file I/O
+13. feat: add qa_checker Pass 1 mechanical validation with 10 passing tests
+14. feat: add qa_checker Pass 2 and file routing with 6 new tests
+15. feat: wire all Plan 02 modules into run.py — MonsterGen + QAChecker complete
+16. fix: improve crit parsing — extract table/die separately from threat range
+— Plan 03 (SheetAuditor + SheetPatcher) —
+17. fix: port session bugfixes — strip_sign blank handling, build_hit_points hd fallback
+18. feat: update sheet CLI to --audit/--patch flags (combinable)
+19. feat: add sheet_auditor NPC filter and character loading
+20. feat: add check_sheet with full quality check suite
+21. feat: add assemble_full_sheet and audit_characters
+22. feat: add audit report generation (md + json)
+23. feat: wire SheetAuditor into run.py sheet --audit command
+24. feat: add SheetPatcher and wire sheet --patch command
+25. chore: mark Plan 03 complete in PROGRESS.md
 
 ## Update Instructions
 Update this file at the end of every session:
