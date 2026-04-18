@@ -57,17 +57,45 @@ class TestMonsterCommand:
 
 
 class TestRoomCommand:
-    def test_room_with_input_file(self):
-        args = parse_args(['room', '--input', 'data/input/1-1-entry-hall.md'])
-        assert args.command == 'room'
-        assert args.input == 'data/input/1-1-entry-hall.md'
+    def test_room_with_level(self):
+        args = parse_args(["room", "--level", "1"])
+        assert args.command == "room"
+        assert args.level == 1
+
+    def test_room_with_level_and_pages(self):
+        args = parse_args(["room", "--level", "1", "--pages", "120-145"])
+        assert args.pages == "120-145"
+
+    def test_room_with_all_flag(self):
+        args = parse_args(["room", "--all"])
+        assert args.all is True
+
+    def test_room_with_reextract(self):
+        args = parse_args(["room", "--level", "1", "--reextract"])
+        assert args.reextract is True
+
+    def test_room_no_args_allowed(self):
+        args = parse_args(["room"])
+        assert args.command == "room"
 
 
 class TestEncounterCommand:
     def test_encounter_with_level(self):
-        args = parse_args(['encounter', '--level', '1'])
-        assert args.command == 'encounter'
+        args = parse_args(["encounter", "--level", "1"])
+        assert args.command == "encounter"
         assert args.level == 1
+
+    def test_encounter_with_all(self):
+        args = parse_args(["encounter", "--all"])
+        assert args.all is True
+
+    def test_encounter_with_pages_override(self):
+        args = parse_args(["encounter", "--level", "1", "--pages", "115-120"])
+        assert args.pages == "115-120"
+
+    def test_encounter_with_reextract(self):
+        args = parse_args(["encounter", "--level", "1", "--reextract"])
+        assert args.reextract is True
 
 
 class TestQACommand:

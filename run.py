@@ -90,11 +90,23 @@ Commands:
     # -------------------------------------------------------------------------
     room_parser = subparsers.add_parser(
         'room',
-        help='Generate room descriptions and player handouts'
+        help='Extract rooms from PDF and generate Roll20 handout JSONs'
     )
     room_parser.add_argument(
-        '--input', type=str, required=True,
-        help='Path to room note markdown file'
+        '--level', type=int,
+        help='Dungeon level to process (e.g. 1 → section level_1 in pdf_sections.json)'
+    )
+    room_parser.add_argument(
+        '--pages', type=str,
+        help='Override page range from config (e.g. 120-145)'
+    )
+    room_parser.add_argument(
+        '--all', action='store_true',
+        help='Process all sections defined in data/input/pdf_sections.json'
+    )
+    room_parser.add_argument(
+        '--reextract', action='store_true',
+        help='Force re-extraction even if staged file exists'
     )
 
     # -------------------------------------------------------------------------
@@ -102,11 +114,23 @@ Commands:
     # -------------------------------------------------------------------------
     encounter_parser = subparsers.add_parser(
         'encounter',
-        help='Generate wandering monster tables for a dungeon level'
+        help='Extract wandering tables from PDF and generate Roll20 API scripts'
     )
     encounter_parser.add_argument(
-        '--level', type=int, required=True,
-        help='Dungeon level to generate encounter table for'
+        '--level', type=int,
+        help='Dungeon level to process (e.g. 1 → section level_1 in pdf_sections.json)'
+    )
+    encounter_parser.add_argument(
+        '--pages', type=str,
+        help='Override page range from config (e.g. 115-120)'
+    )
+    encounter_parser.add_argument(
+        '--all', action='store_true',
+        help='Process all sections defined in data/input/pdf_sections.json'
+    )
+    encounter_parser.add_argument(
+        '--reextract', action='store_true',
+        help='Force re-extraction even if staged file exists'
     )
 
     # -------------------------------------------------------------------------
@@ -149,6 +173,8 @@ Commands:
 
 def main():
     """Parse arguments and dispatch to the appropriate agent."""
+    import json as _json
+
     parser = build_parser()
     args = parser.parse_args()
 
@@ -158,6 +184,25 @@ def main():
     import qa_checker
     import sheet_auditor
     import sheet_patcher
+    import parse_pdf
+    import room_gen
+    import encounter_gen
+
+    def _resolve_sections(a, pages_key):
+        """Return {section_key: (start, end)} from CLI args + pdf_sections.json."""
+        config_path = Path('data/input/pdf_sections.json')
+        if a.all:
+            config = _json.loads(config_path.read_text(encoding='utf-8'))
+            return {k: tuple(v[pages_key]) for k, v in config.items()}
+        if a.level:
+            section_key = f'level_{a.level}'
+            if a.pages:
+                start, end = map(int, a.pages.split('-'))
+                return {section_key: (start, end)}
+            config = _json.loads(config_path.read_text(encoding='utf-8'))
+            return {section_key: tuple(config[section_key][pages_key])}
+        print("Specify --level N or --all. See --help.")
+        return {}
 
     def handle_monster(a):
         if a.parse:
@@ -170,6 +215,20 @@ def main():
             else:
                 monster_gen.run_generate_all()
 
+    def handle_room(a):
+        sections = _resolve_sections(a, 'room_pages')
+        for section_key, pages in sections.items():
+            staged = parse_pdf.extract_rooms(section_key, pages, reextract=a.reextract)
+            room_gen.run(section_key, str(staged))
+        if sections:
+            qa_checker.run()
+
+    def handle_encounter(a):
+        sections = _resolve_sections(a, 'encounter_pages')
+        for section_key, pages in sections.items():
+            staged = parse_pdf.extract_wandering(section_key, pages, reextract=a.reextract)
+            encounter_gen.run(section_key, str(staged))
+
     def handle_sheet(a):
         if a.audit:
             sheet_auditor.run()
@@ -180,8 +239,8 @@ def main():
 
     handlers = {
         'monster':   handle_monster,
-        'room':      lambda a: print(f"[RoomGen] Not yet implemented. Args: {vars(a)}"),
-        'encounter': lambda a: print(f"[EncounterGen] Not yet implemented. Args: {vars(a)}"),
+        'room':      handle_room,
+        'encounter': handle_encounter,
         'qa':        lambda a: qa_checker.run(),
         'sheet':     handle_sheet,
         'session':   lambda a: print(f"[Session:{a.session_action}] Not yet implemented. Args: {vars(a)}"),
