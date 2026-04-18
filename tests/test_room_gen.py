@@ -1,7 +1,6 @@
 # tests/test_room_gen.py
 import json
 import pytest
-from unittest.mock import MagicMock
 
 from room_gen import (
     sanitize_filename,

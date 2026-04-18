@@ -86,7 +86,7 @@ def generate_handouts(section_key, staged_path, client=None):
         )
         handouts = parse_claude_response(message.content[0].text)
         for handout in handouts:
-            filename = sanitize_filename(section_key, handout.get('name', f'room_{i}'))
+            filename = sanitize_filename(section_key, handout.get('name') or f'room_{len(results)}')
             results.append((filename, handout))
 
     return results
