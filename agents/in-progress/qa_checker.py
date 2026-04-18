@@ -30,6 +30,26 @@ NUMBER_FIELDS = {'is_npc', 'ac', 'fort', 'ref', 'will', 'init'}
 STRING_FIELDS = {'name', 'hd', 'act', 'speed', 'alignment', 'sp', 'description'}
 
 
+HANDOUT_REQUIRED_FIELDS = ['type', 'name', 'notes', 'gmnotes']
+
+
+def pass1_handout_check(handout):
+    """Validate a handout dict. Returns list of error strings (empty = valid)."""
+    errors = []
+    for field in HANDOUT_REQUIRED_FIELDS:
+        if field not in handout:
+            errors.append(f"Missing required field: {field}")
+    if errors:
+        return errors
+    if handout.get('type') != 'handout':
+        errors.append(f"type must be 'handout', got '{handout.get('type')}'")
+    if not isinstance(handout.get('notes'), str) or not handout['notes'].strip():
+        errors.append("notes must be a non-empty string")
+    if not isinstance(handout.get('gmnotes'), str) or not handout['gmnotes'].strip():
+        errors.append("gmnotes must be a non-empty string")
+    return errors
+
+
 def pass1_check(sheet):
     """Run mechanical validation on a sheet dict. Returns list of error strings."""
     errors = []
@@ -166,9 +186,6 @@ def run(
     client=None
 ):
     """Run QA on all .json files in pending_dir."""
-    if client is None:
-        client = anthropic.Anthropic()
-
     pending_path = Path(pending_dir)
     if not pending_path.exists():
         print("No pending directory found.")
@@ -183,20 +200,30 @@ def run(
     flagged = 0
 
     for json_file in json_files:
-        sheet = json.loads(json_file.read_text(encoding='utf-8'))
-        errors = pass1_check(sheet)
-        result, reason = pass2_check(sheet, client=client)
+        data = json.loads(json_file.read_text(encoding='utf-8'))
+
+        if data.get('type') == 'handout':
+            errors = pass1_handout_check(data)
+            result = 'PASS' if not errors else 'FLAG'
+            reason = '; '.join(errors)
+        else:
+            if client is None:
+                client = anthropic.Anthropic()
+            errors = pass1_check(data)
+            result, reason = pass2_check(data, client=client)
+
         if not errors and result == 'PASS':
             passed += 1
         else:
             flagged += 1
+
         route_sheet(
             sheet_path=str(json_file),
             pass1_errors=errors,
             pass2_result=result,
             pass2_reason=reason,
             ready_dir=ready_dir,
-            flagged_dir=flagged_dir
+            flagged_dir=flagged_dir,
         )
 
     print(f"{passed} passed, {flagged} flagged")

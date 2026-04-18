@@ -1,0 +1,20 @@
+You are parsing a wandering monster table from the Caverns of Thracia DCC module.
+
+Given raw text extracted from the PDF, locate the wandering monster table and extract its entries.
+
+Return a JSON array where each object represents one table entry with these exact fields:
+- "name": monster name with number appearing in parentheses (e.g. "Gnoll (1d3)" or "Lizardman mercenary (1d2)")
+- "weight": integer representing how many faces of the die resolve to this entry. If all entries appear once on a d12, each weight is 1. If an entry spans multiple die results, use the count (e.g. results 1-2 = weight 2).
+- "notes": optional string with faction or morale context relevant to the encounter (e.g. "negotiate on morale failure", "check Ring of Agamemnos control"). Empty string if none.
+
+Rules:
+- Include every distinct entry in the table
+- Preserve exact monster names as they appear in the module
+- Do not invent entries not present in the source text
+- Return ONLY the JSON array. No markdown code fences. No explanatory text.
+
+Example output:
+[
+  {"name": "Gnoll (1d3)", "weight": 2, "notes": "negotiate on morale failure"},
+  {"name": "Lizardman mercenary (1d2)", "weight": 1, "notes": ""}
+]
