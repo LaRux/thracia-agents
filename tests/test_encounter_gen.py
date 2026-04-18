@@ -1,7 +1,6 @@
 # tests/test_encounter_gen.py
 import json
 import pytest
-from unittest.mock import MagicMock
 
 from encounter_gen import validate_entries, build_js, parse_claude_response
 

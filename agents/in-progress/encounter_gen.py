@@ -12,8 +12,9 @@ from pathlib import Path
 
 import anthropic
 
-PROMPT_PATH = 'prompts/encounter_gen.txt'
-READY_DIR = 'data/output/ready'
+_ROOT = Path(__file__).resolve().parent.parent.parent  # agents/in-progress → project root
+PROMPT_PATH = _ROOT / 'prompts' / 'encounter_gen.txt'
+READY_DIR = _ROOT / 'data' / 'output' / 'ready'
 
 
 def parse_claude_response(response_text):
@@ -99,9 +100,7 @@ def run(section_key, staged_path):
     entries = parse_wandering_table(staged_path)
     errors = validate_entries(entries)
     if errors:
-        for e in errors:
-            print(f"[EncounterGen] ERROR: {e}")
-        return
+        raise ValueError(f"[EncounterGen] Validation errors: {errors}")
 
     js_content = build_js(section_key, entries)
     Path(READY_DIR).mkdir(parents=True, exist_ok=True)
