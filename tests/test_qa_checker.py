@@ -87,7 +87,7 @@ class TestPass1Check:
 
 import shutil
 from unittest.mock import MagicMock, patch
-from qa_checker import pass2_check, route_sheet, run
+from qa_checker import pass2_check, route_sheet, run, pass1_handout_check
 
 
 def make_mock_client(response_text):
@@ -179,3 +179,70 @@ class TestRouteSheet:
         assert (flagged / 'stirge.json').exists()
         report = (flagged / 'stirge_qa_report.txt').read_text()
         assert 'will save' in report
+
+
+VALID_HANDOUT = {
+    "type": "handout",
+    "name": "Area 1-2 - Hall of the Bats",
+    "notes": "<p>The air is thick with bat guano.</p>",
+    "gmnotes": "<p><strong>Encounter:</strong> 3d6 bats.</p>",
+    "folder": "Level 1",
+}
+
+
+class TestPass1HandoutCheck:
+    def test_valid_handout_passes(self):
+        assert pass1_handout_check(VALID_HANDOUT) == []
+
+    def test_missing_notes_fails(self):
+        h = dict(VALID_HANDOUT)
+        del h["notes"]
+        errors = pass1_handout_check(h)
+        assert any("notes" in e for e in errors)
+
+    def test_missing_gmnotes_fails(self):
+        h = dict(VALID_HANDOUT)
+        del h["gmnotes"]
+        errors = pass1_handout_check(h)
+        assert any("gmnotes" in e for e in errors)
+
+    def test_wrong_type_fails(self):
+        h = dict(VALID_HANDOUT, type="monster")
+        errors = pass1_handout_check(h)
+        assert any("type" in e for e in errors)
+
+    def test_empty_notes_fails(self):
+        h = dict(VALID_HANDOUT, notes="   ")
+        errors = pass1_handout_check(h)
+        assert any("notes" in e for e in errors)
+
+
+class TestHandoutDispatch:
+    def test_valid_handout_routes_to_ready(self, tmp_path):
+        pending = tmp_path / "pending"
+        ready = tmp_path / "ready"
+        flagged = tmp_path / "flagged"
+        pending.mkdir()
+        (pending / "room.json").write_text(json.dumps(VALID_HANDOUT), encoding="utf-8")
+
+        run(
+            pending_dir=str(pending),
+            ready_dir=str(ready),
+            flagged_dir=str(flagged),
+        )
+        assert (ready / "room.json").exists()
+
+    def test_handout_with_empty_notes_routes_to_flagged(self, tmp_path):
+        pending = tmp_path / "pending"
+        ready = tmp_path / "ready"
+        flagged = tmp_path / "flagged"
+        pending.mkdir()
+        bad = dict(VALID_HANDOUT, notes="")
+        (pending / "room.json").write_text(json.dumps(bad), encoding="utf-8")
+
+        run(
+            pending_dir=str(pending),
+            ready_dir=str(ready),
+            flagged_dir=str(flagged),
+        )
+        assert (flagged / "room.json").exists()
