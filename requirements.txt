@@ -12,6 +12,7 @@ idna==3.11
 iniconfig==2.3.0
 jiter==0.13.0
 packaging @ file:///C:/miniconda3/conda-bld/packaging_1761049096285/work
+pdfplumber==0.11.9
 pluggy==1.6.0
 pydantic==2.12.5
 pydantic_core==2.41.5
