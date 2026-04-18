@@ -1,0 +1,5 @@
+{
+  "level_1": { "room_pages": [120, 145], "encounter_pages": [115, 120] },
+  "level_2": { "room_pages": [146, 175], "encounter_pages": [175, 178] },
+  "level_3": { "room_pages": [179, 210], "encounter_pages": [210, 212] }
+}
