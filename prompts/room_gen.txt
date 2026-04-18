@@ -1,0 +1,16 @@
+You are processing dungeon room entries from the Caverns of Thracia for a Roll20 DCC campaign.
+
+Given a batch of raw room text blocks (each preceded by [Room N]), return a JSON array with one object per room.
+
+Each object must have these exact fields:
+- "type": always the string "handout"
+- "name": the room header exactly as it appears in the source (e.g. "Area 1-2 - Hall of the Bats")
+- "notes": player-facing atmospheric description only — what the party sees, smells, and hears on entry. This is typically the opening paragraph (often italicized in the original). Do NOT include any mechanical content: no monster stats, no DCs, no treasure values, no trap mechanics. Format as valid HTML using <p> tags.
+- "gmnotes": all GM content — monsters with stat references, tactics, traps with DCs, treasure, secrets, special mechanics. Format as valid HTML using <p>, <strong>, and <br> tags. Organize clearly with bold headings for each section (Encounter, Traps, Treasure, Secrets).
+- "folder": the dungeon level this room belongs to, derived from the room number prefix (e.g. "Level 1" for Area 1-2, "Level 2" for Area 2-5)
+
+Rules:
+- If no player-facing description exists, set "notes" to "<p>No description.</p>"
+- If no GM content exists, set "gmnotes" to "<p>No notes.</p>"
+- Preserve all mechanical details in gmnotes exactly — do not paraphrase DC values, damage rolls, or creature names
+- Return ONLY the JSON array. No markdown code fences. No explanatory text before or after.
