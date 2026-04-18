@@ -74,10 +74,9 @@ def extract_rooms(section_key, pages, reextract=False):
     Returns:
         Path to staged rooms_{section_key}.txt file
     """
-    staged_path = Path(f'rooms_{section_key}.txt')
     out_path = Path(f'data/input/rooms_{section_key}.txt')
-    if (staged_path.exists() or out_path.exists()) and not reextract:
-        return staged_path if staged_path.exists() else out_path
+    if out_path.exists() and not reextract:
+        return out_path
 
     text = _extract_text(pages)
     blocks = split_rooms(text)
@@ -98,10 +97,9 @@ def extract_wandering(section_key, pages, reextract=False):
     Returns:
         Path to staged wandering_{section_key}.txt file
     """
-    staged_path = Path(f'wandering_{section_key}.txt')
     out_path = Path(f'data/input/wandering_{section_key}.txt')
-    if (staged_path.exists() or out_path.exists()) and not reextract:
-        return staged_path if staged_path.exists() else out_path
+    if out_path.exists() and not reextract:
+        return out_path
 
     text = _extract_text(pages)
     out_path.parent.mkdir(parents=True, exist_ok=True)

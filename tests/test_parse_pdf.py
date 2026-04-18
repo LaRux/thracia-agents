@@ -1,5 +1,4 @@
 # tests/test_parse_pdf.py
-import sys
 from pathlib import Path
 import pytest
 
@@ -47,7 +46,8 @@ class TestSplitRooms:
 
 class TestExtractRooms:
     def test_skips_extraction_if_staged_file_exists(self, tmp_path, monkeypatch):
-        staged = tmp_path / "rooms_level_1.txt"
+        (tmp_path / "data" / "input").mkdir(parents=True)
+        staged = tmp_path / "data" / "input" / "rooms_level_1.txt"
         staged.write_text("existing content")
         monkeypatch.chdir(tmp_path)
 
@@ -58,10 +58,10 @@ class TestExtractRooms:
         assert result.read_text() == "existing content"
 
     def test_reextract_overwrites_existing_file(self, tmp_path, monkeypatch):
-        staged = tmp_path / "rooms_level_1.txt"
+        (tmp_path / "data" / "input").mkdir(parents=True)
+        staged = tmp_path / "data" / "input" / "rooms_level_1.txt"
         staged.write_text("old content")
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "data" / "input").mkdir(parents=True)
 
         import parse_pdf
         monkeypatch.setattr(parse_pdf, "_extract_text", lambda pages: "Area 1-1 - Room\nNew content.")
@@ -70,7 +70,8 @@ class TestExtractRooms:
         assert "New content" in result.read_text()
 
     def test_extract_wandering_skips_if_staged_exists(self, tmp_path, monkeypatch):
-        staged = tmp_path / "wandering_level_1.txt"
+        (tmp_path / "data" / "input").mkdir(parents=True)
+        staged = tmp_path / "data" / "input" / "wandering_level_1.txt"
         staged.write_text("existing table")
         monkeypatch.chdir(tmp_path)
 
@@ -79,3 +80,15 @@ class TestExtractRooms:
 
         result = parse_pdf.extract_wandering("level_1", (115, 120), reextract=False)
         assert result.read_text() == "existing table"
+
+    def test_reextract_wandering_overwrites_existing_file(self, tmp_path, monkeypatch):
+        (tmp_path / "data" / "input").mkdir(parents=True)
+        staged = tmp_path / "data" / "input" / "wandering_level_1.txt"
+        staged.write_text("old table content")
+        monkeypatch.chdir(tmp_path)
+
+        import parse_pdf
+        monkeypatch.setattr(parse_pdf, "_extract_text", lambda pages: "New wandering table content.")
+
+        result = parse_pdf.extract_wandering("level_1", (115, 120), reextract=True)
+        assert "New wandering" in result.read_text()
