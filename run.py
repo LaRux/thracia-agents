@@ -16,6 +16,7 @@
 # individual agent file.
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -173,8 +174,6 @@ Commands:
 
 def main():
     """Parse arguments and dispatch to the appropriate agent."""
-    import json as _json
-
     parser = build_parser()
     args = parser.parse_args()
 
@@ -192,14 +191,17 @@ def main():
         """Return {section_key: (start, end)} from CLI args + pdf_sections.json."""
         config_path = Path('data/input/pdf_sections.json')
         if a.all:
-            config = _json.loads(config_path.read_text(encoding='utf-8'))
+            config = json.loads(config_path.read_text(encoding='utf-8'))
             return {k: tuple(v[pages_key]) for k, v in config.items()}
-        if a.level:
+        if a.level is not None:
             section_key = f'level_{a.level}'
             if a.pages:
                 start, end = map(int, a.pages.split('-'))
                 return {section_key: (start, end)}
-            config = _json.loads(config_path.read_text(encoding='utf-8'))
+            config = json.loads(config_path.read_text(encoding='utf-8'))
+            if section_key not in config:
+                print(f"Section '{section_key}' not found in pdf_sections.json. Available: {list(config.keys())}")
+                return {}
             return {section_key: tuple(config[section_key][pages_key])}
         print("Specify --level N or --all. See --help.")
         return {}
