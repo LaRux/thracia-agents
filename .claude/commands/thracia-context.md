@@ -16,9 +16,9 @@ Python MCP server (Phase 3 automation).
 
 ## Current Status
 - **Phase:** Phase 1 — Content Generation (in progress)
-- **Last completed:** Plan 03 — SheetAuditor + SheetPatcher (NPC sheet quality audit and auto-patch pipeline)
+- **Last completed:** Plan 04 — RoomGen + EncounterGen (PDF extraction → Roll20 handout JSONs + wandering table API scripts)
 - **Active task:** None — starting fresh
-- **Next goal:** Plan 04 — RoomGen + EncounterGen
+- **Next goal:** Plan 05 (TBD) — Phase 1 complete; consider Phase 2 (Roll20 API scripts) or smoke-testing the full pipeline
 
 ## Environment
 - Python: conda environment named thracia-agents
@@ -40,7 +40,7 @@ Python MCP server (Phase 3 automation).
 - average_from_hd helper lives in agents/in-progress/utils.py (shared by MonsterGen + SheetAuditor)
 - strip_sign returns 0 for blank strings; build_hit_points falls back to hd average if hp_avg empty
 
-## Git Log (as of Plan 03 completion)
+## Git Log (as of Plan 04 completion)
 1. chore: initialize project with Python dependencies and gitignore
 2. chore: create project folder structure and phase status files
 3. feat: add run.py CLI scaffold with 9 passing argument parsing tests
@@ -68,6 +68,19 @@ Python MCP server (Phase 3 automation).
 23. feat: wire SheetAuditor into run.py sheet --audit command
 24. feat: add SheetPatcher and wire sheet --patch command
 25. chore: mark Plan 03 complete in PROGRESS.md
+— Plan 04 (RoomGen + EncounterGen) —
+26. chore: move all docs from Obsidian vault into project repo
+27. docs: add Plan 04 RoomGen + EncounterGen implementation plan
+28. chore: install pdfplumber and add pdf_sections.json config
+29. feat: add parse_pdf extraction module with room splitting and 9 passing tests
+30. feat: add encounter_gen prompt template
+31. feat: add room_gen prompt template
+32. feat: add room_gen agent with handout JSON generation and 12 passing tests
+33. feat: add encounter_gen agent with JS table generation and 12 passing tests
+34. fix: anchor encounter_gen paths to project root, raise on validation failure
+35. feat: extend QAChecker with handout validation pass and 7 new tests
+36. feat: wire room and encounter commands into run.py with full CLI and handler dispatch
+37. fix: correct level None check and add config KeyError guard in run.py
 
 ## Update Instructions
 Update this file at the end of every session:
