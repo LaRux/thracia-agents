@@ -60,7 +60,7 @@ class TestRoomCommand:
     def test_room_with_level(self):
         args = parse_args(["room", "--level", "1"])
         assert args.command == "room"
-        assert args.level == 1
+        assert args.level == "1"
 
     def test_room_with_level_and_pages(self):
         args = parse_args(["room", "--level", "1", "--pages", "120-145"])
@@ -83,7 +83,7 @@ class TestEncounterCommand:
     def test_encounter_with_level(self):
         args = parse_args(["encounter", "--level", "1"])
         assert args.command == "encounter"
-        assert args.level == 1
+        assert args.level == "1"
 
     def test_encounter_with_all(self):
         args = parse_args(["encounter", "--all"])

@@ -94,8 +94,8 @@ Commands:
         help='Extract rooms from PDF and generate Roll20 handout JSONs'
     )
     room_parser.add_argument(
-        '--level', type=int,
-        help='Dungeon level to process (e.g. 1 → section level_1 in pdf_sections.json)'
+        '--level', type=str,
+        help='Dungeon level to process (e.g. 1 → level_1, 2a → level_2a)'
     )
     room_parser.add_argument(
         '--pages', type=str,
@@ -118,8 +118,8 @@ Commands:
         help='Extract wandering tables from PDF and generate Roll20 API scripts'
     )
     encounter_parser.add_argument(
-        '--level', type=int,
-        help='Dungeon level to process (e.g. 1 → section level_1 in pdf_sections.json)'
+        '--level', type=str,
+        help='Dungeon level to process (e.g. 1 → level_1, 2a → level_2a)'
     )
     encounter_parser.add_argument(
         '--pages', type=str,
