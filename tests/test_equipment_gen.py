@@ -11,6 +11,7 @@ from equipment_gen import (
     armor_vector_string,
     apply_shield,
     build_script,
+    build_handout,
 )
 
 VALID_CATALOG = {
@@ -133,6 +134,31 @@ class TestBuildScript:
         js = build_script(VALID_CATALOG)
         assert "repeating_weapons_" in js
         assert "generateRowID()" in js
+
+
+class TestBuildHandout:
+    def test_handout_shape(self):
+        h = build_handout(VALID_CATALOG)
+        assert h['type'] == 'handout'
+        assert h['name']
+        assert h['notes'].strip()
+        assert h['gmnotes'].strip()
+
+    def test_notes_contain_item_names_and_tables(self):
+        h = build_handout(VALID_CATALOG)
+        assert '<table' in h['notes']
+        assert 'Spear' in h['notes']
+        assert 'Linothorax' in h['notes']
+        assert 'Small shield' in h['notes']
+
+    def test_passes_qa_handout_check(self):
+        """The generated handout must satisfy the existing QAChecker handout pass."""
+        from qa_checker import pass1_handout_check
+        assert pass1_handout_check(build_handout(VALID_CATALOG)) == []
+
+    def test_real_catalog_handout_passes_qa(self):
+        from qa_checker import pass1_handout_check
+        assert pass1_handout_check(build_handout(load_catalog())) == []
 
 
 class TestRun:

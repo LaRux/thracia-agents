@@ -142,12 +142,15 @@ Commands:
         'equipment',
         help='Generate the Roll20 equip/lookup mod script from data/input/equipment.json'
     )
-    equipment_action_group = equipment_parser.add_mutually_exclusive_group(required=True)
-    equipment_action_group.add_argument(
+    equipment_parser.add_argument(
         '--build', action='store_true',
-        help='Validate the catalog and write data/output/ready/equipment.js'
+        help='Validate the catalog and write data/output/ready/equipment.js (mod script)'
     )
-    equipment_action_group.add_argument(
+    equipment_parser.add_argument(
+        '--handout', action='store_true',
+        help='Write the player-facing gear handout to data/output/pending/ (run `qa` to validate)'
+    )
+    equipment_parser.add_argument(
         '--validate', action='store_true',
         help='Validate data/input/equipment.json and print any errors (no output written)'
     )
@@ -259,8 +262,12 @@ def main():
                     print(f"  - {e}")
             else:
                 print("[EquipmentGen] Catalog valid.")
-        elif a.build:
+        if a.build:
             equipment_gen.run()
+        if a.handout:
+            equipment_gen.run_handout()
+        if not (a.validate or a.build or a.handout):
+            print("Specify --build, --handout, and/or --validate. See --help.")
 
     def handle_sheet(a):
         if a.audit:

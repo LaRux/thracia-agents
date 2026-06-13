@@ -21,6 +21,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent.parent  # agents/in-progress -> project root
 CATALOG_PATH = _ROOT / 'data' / 'input' / 'equipment.json'
 READY_DIR = _ROOT / 'data' / 'output' / 'ready'
+PENDING_DIR = _ROOT / 'data' / 'output' / 'pending'
 
 DAMAGE_TYPES = {'piercing', 'slashing', 'bludgeoning', 'special'}
 RANGES = {'melee', 'missile'}
@@ -320,6 +321,160 @@ def build_script(catalog):
     )
     catalog_js = "var CATALOG = " + json.dumps(catalog, indent=2, ensure_ascii=False) + ";\n"
     return header + catalog_js + _SCRIPT_BODY
+
+
+# --- Player-facing handout (browsable HTML gear list) -----------------------
+
+def _esc(value):
+    """Minimal HTML escape for catalog values."""
+    return (
+        str(value)
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+    )
+
+
+def _weapon_special(weapon):
+    """Compose the player-facing 'Special' cell for a weapon."""
+    bits = []
+    if weapon.get('two_handed'):
+        bits.append('two-handed')
+    if weapon.get('reach'):
+        bits.append('reach')
+    if weapon.get('finesse'):
+        bits.append('finesse (AGL)')
+    if weapon.get('thrown'):
+        bits.append(f"thrown {weapon['thrown']}")
+    if weapon.get('crit_note'):
+        bits.append(weapon['crit_note'])
+    if weapon.get('notes'):
+        bits.append(weapon['notes'])
+    return _esc('; '.join(bits))
+
+
+def build_weapons_table_html(weapons):
+    """Render the weapons reference table as HTML."""
+    head = (
+        "<tr><th>Weapon</th><th>Dmg</th><th>Type</th><th>Size</th>"
+        "<th>Range</th><th>Special</th><th>Cost</th></tr>"
+    )
+    rows = []
+    for w in weapons:
+        rows.append(
+            "<tr>"
+            f"<td><strong>{_esc(w['name'])}</strong></td>"
+            f"<td>{_esc(w['damage'])}</td>"
+            f"<td>{_esc(w['damage_type'])}</td>"
+            f"<td>{_esc(w.get('size', '-'))}</td>"
+            f"<td>{_esc(w['range'])}</td>"
+            f"<td>{_weapon_special(w)}</td>"
+            f"<td>{_esc(w.get('cost', '-'))}</td>"
+            "</tr>"
+        )
+    return f"<table border='1' cellpadding='4'><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
+
+
+def build_armor_table_html(armor):
+    """Render the body-armor reference table (non-shield entries) as HTML."""
+    head = (
+        "<tr><th>Armor</th><th>Base</th><th>P</th><th>S</th><th>B</th>"
+        "<th>Max AGL</th><th>Check</th><th>Speed</th><th>Fumble</th><th>Cost</th></tr>"
+    )
+    rows = []
+    for a in armor:
+        if a.get('is_shield'):
+            continue
+        agl = a.get('max_agl_mod')
+        agl_str = '-' if agl is None else f"+{agl}"
+        speed = a.get('speed_penalty', 0)
+        speed_str = '-' if not speed else f"{speed}'"
+        rows.append(
+            "<tr>"
+            f"<td><strong>{_esc(a['name'])}</strong></td>"
+            f"<td>{a['base_ac']}</td>"
+            f"<td>{a['ac_piercing']}</td>"
+            f"<td>{a['ac_slashing']}</td>"
+            f"<td>{a['ac_bludgeoning']}</td>"
+            f"<td>{_esc(agl_str)}</td>"
+            f"<td>{_esc(a.get('check_penalty', 0) or '-')}</td>"
+            f"<td>{_esc(speed_str)}</td>"
+            f"<td>{_esc(a.get('fumble_die', '-'))}</td>"
+            f"<td>{_esc(a.get('cost', '-'))}</td>"
+            "</tr>"
+        )
+    return f"<table border='1' cellpadding='4'><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
+
+
+def build_shields_table_html(armor):
+    """Render the shields reference table (is_shield entries) as HTML."""
+    head = (
+        "<tr><th>Shield</th><th>AC Bonus</th><th>Check</th>"
+        "<th>Fumble</th><th>Cost</th><th>Notes</th></tr>"
+    )
+    rows = []
+    for a in armor:
+        if not a.get('is_shield'):
+            continue
+        rows.append(
+            "<tr>"
+            f"<td><strong>{_esc(a['name'])}</strong></td>"
+            f"<td>+{a['ac_bonus_all']}</td>"
+            f"<td>{_esc(a.get('check_penalty', 0) or '-')}</td>"
+            f"<td>{_esc(a.get('fumble_die', '-'))}</td>"
+            f"<td>{_esc(a.get('cost', '-'))}</td>"
+            f"<td>{_esc(a.get('notes', ''))}</td>"
+            "</tr>"
+        )
+    return f"<table border='1' cellpadding='4'><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
+
+
+def build_handout(catalog):
+    """Build a Roll20 handout dict with a browsable, player-facing gear list.
+
+    The same shape room_gen emits, so it flows through QAChecker (`python run.py
+    qa`) and any future handout importer.
+    """
+    weapons = catalog.get('weapons', [])
+    armor = catalog.get('armor', [])
+    notes = (
+        "<h2>Weapons &amp; Armor</h2>"
+        "<p>Armor protects differently against each damage type. AC is shown as "
+        "<strong>P</strong>iercing / <strong>S</strong>lashing / "
+        "<strong>B</strong>ludgeoning &mdash; choose your weapon accordingly.</p>"
+        "<h3>Weapons</h3>"
+        + build_weapons_table_html(weapons)
+        + "<h3>Armor</h3>"
+        + build_armor_table_html(armor)
+        + "<h3>Shields</h3>"
+        + build_shields_table_html(armor)
+    )
+    gmnotes = (
+        "Auto-generated from data/input/equipment.json by equipment_gen. "
+        "Edit the catalog and re-run `python run.py equipment --handout` to refresh. "
+        "Kept in sync with the !equip mod script."
+    )
+    return {
+        'type': 'handout',
+        'name': 'Equipment - Weapons & Armor',
+        'notes': notes,
+        'gmnotes': gmnotes,
+        'folder': 'Reference',
+    }
+
+
+def run_handout():
+    """Build the player-facing handout JSON and write it to data/output/pending/."""
+    catalog = load_catalog(CATALOG_PATH)
+    errors = validate_catalog(catalog)
+    if errors:
+        raise ValueError(f"[EquipmentGen] Catalog validation errors: {errors}")
+
+    handout = build_handout(catalog)
+    Path(PENDING_DIR).mkdir(parents=True, exist_ok=True)
+    out_path = Path(PENDING_DIR) / 'equipment_handout.json'
+    out_path.write_text(json.dumps(handout, indent=2, ensure_ascii=False), encoding='utf-8')
+    print(f"EquipmentGen: handout '{handout['name']}' -> {out_path} (run `python run.py qa` to validate)")
 
 
 def run():
