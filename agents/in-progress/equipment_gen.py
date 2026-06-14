@@ -855,6 +855,84 @@ def run_handout():
     print(f"EquipmentGen: handout '{handout['name']}' -> {out_path} (run `python run.py qa` to validate)")
 
 
+def build_macros(catalog):
+    """Render the Roll20 macro-button cheat sheet (markdown) from the catalog."""
+    weapons = [w['name'] for w in catalog.get('weapons', [])]
+    body = [a['name'] for a in catalog.get('armor', []) if not a.get('is_shield')]
+    shields = [a['name'] for a in catalog.get('armor', []) if a.get('is_shield')]
+    magic = [m['name'] for m in catalog.get('magic_items', [])]
+    bases = weapons + body + shields
+    all_items = bases + magic
+
+    loot = (
+        '!equip ?{Base item|' + '|'.join(bases) + '}'
+        ' --name ?{Magic name (blank = keep base)|}'
+        ' --atk ?{Attack bonus|0}'
+        ' --dmg ?{Damage bonus|0}'
+        ' --ac ?{AC bonus (armor only)|0}'
+        ' --note ?{Special note e.g. 1d6 fire|}'
+    )
+
+    macros = [
+        ("EquipWeapon", '!equip ?{Weapon|' + '|'.join(weapons) + '}'),
+        ("EquipArmor", '!equip ?{Armor|' + '|'.join(body) + '}'),
+        ("EquipShield", '!equip ?{Shield|' + '|'.join(shields) + '}'),
+    ]
+    if magic:
+        macros.append(("EquipMagic", '!equip ?{Magic item|' + '|'.join(magic) + '}'))
+    macros += [
+        ("EquipLoot", loot),
+        ("Unequip", '!unequip ?{Item|' + '|'.join(all_items) + '}'),
+        ("MyAC", '!ac'),
+        ("Gear", '!equip-list'),
+    ]
+
+    lines = [
+        "# Thracia Equipment — Roll20 Macro Buttons",
+        "",
+        "Auto-generated from `data/input/equipment.json` by "
+        "`python run.py equipment --macros`. Do not edit by hand.",
+        "",
+        "## How to add each one",
+        "1. Bottom-left **Collections** tab -> **Macros** -> **+ Add**.",
+        "2. **Name** it as shown (the name is the button label).",
+        "3. Paste the **Action** code block below.",
+        "4. Check **Show as Token Action**, set visible to **All Players**.",
+        "5. Buttons appear at the top when a token is selected.",
+        "",
+        "Token actions act on the **selected token** — exactly what `!equip` needs.",
+        "",
+        "**EquipLoot** is the ad-hoc magic button: pick a base item, then it prompts "
+        "for a custom name and any +atk / +dmg / +ac / special note. Leave a field at "
+        "its default (0 or blank) to skip it.",
+        "",
+        "---",
+        "",
+    ]
+    for name, action in macros:
+        lines.append(f"## {name}")
+        lines.append("")
+        lines.append("```")
+        lines.append(action)
+        lines.append("```")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def run_macros():
+    """Write the Roll20 macro cheat sheet to data/output/ready/equipment_macros.md."""
+    catalog = load_catalog(CATALOG_PATH)
+    errors = validate_catalog(catalog)
+    if errors:
+        raise ValueError(f"[EquipmentGen] Catalog validation errors: {errors}")
+
+    md = build_macros(catalog)
+    Path(READY_DIR).mkdir(parents=True, exist_ok=True)
+    out_path = Path(READY_DIR) / 'equipment_macros.md'
+    out_path.write_text(md, encoding='utf-8')
+    print(f"EquipmentGen: macros -> {out_path}")
+
+
 def run():
     """Load + validate the catalog, then write equipment.js to data/output/ready/."""
     catalog = load_catalog(CATALOG_PATH)

@@ -151,6 +151,10 @@ Commands:
         help='Write the player-facing gear handout to data/output/pending/ (run `qa` to validate)'
     )
     equipment_parser.add_argument(
+        '--macros', action='store_true',
+        help='Write the Roll20 macro-button cheat sheet to data/output/ready/equipment_macros.md'
+    )
+    equipment_parser.add_argument(
         '--validate', action='store_true',
         help='Validate data/input/equipment.json and print any errors (no output written)'
     )
@@ -266,8 +270,10 @@ def main():
             equipment_gen.run()
         if a.handout:
             equipment_gen.run_handout()
-        if not (a.validate or a.build or a.handout):
-            print("Specify --build, --handout, and/or --validate. See --help.")
+        if a.macros:
+            equipment_gen.run_macros()
+        if not (a.validate or a.build or a.handout or a.macros):
+            print("Specify --build, --handout, --macros, and/or --validate. See --help.")
 
     def handle_sheet(a):
         if a.audit:

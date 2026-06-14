@@ -16,6 +16,7 @@ from equipment_gen import (
     magic_overlay,
     build_script,
     build_handout,
+    build_macros,
 )
 
 VALID_CATALOG = {
@@ -216,6 +217,28 @@ class TestMagicItems:
         assert "magicByName" in js
         assert "parseEquipArg" in js
         assert "magic_items" in js  # embedded catalog
+
+
+class TestBuildMacros:
+    def test_contains_core_buttons(self):
+        md = build_macros(MAGIC_CATALOG)
+        for name in ("EquipWeapon", "EquipArmor", "EquipShield", "EquipLoot", "Unequip", "MyAC"):
+            assert f"## {name}" in md
+
+    def test_equip_magic_button_only_when_magic_present(self):
+        assert "EquipMagic" in build_macros(MAGIC_CATALOG)
+        no_magic = {"weapons": MAGIC_CATALOG["weapons"], "armor": MAGIC_CATALOG["armor"]}
+        assert "EquipMagic" not in build_macros(no_magic)
+
+    def test_loot_macro_has_inline_flags(self):
+        md = build_macros(MAGIC_CATALOG)
+        for flag in ("--name", "--atk", "--dmg", "--ac", "--note"):
+            assert flag in md
+
+    def test_buttons_reference_base_item_names(self):
+        md = build_macros(MAGIC_CATALOG)
+        assert "Longsword" in md
+        assert "Aithre" in md  # magic dropdown
 
 
 class TestBuildScript:
