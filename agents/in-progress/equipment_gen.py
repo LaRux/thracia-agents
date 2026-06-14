@@ -127,6 +127,13 @@ var ThraciaEquipment = (function () {
 
     function norm(s) { return String(s || '').trim().toLowerCase(); }
 
+    // Neutralize Roll20 metacharacters so whispered sheet values aren't parsed
+    // as rolls/abilities (e.g. "%{Test|crit-action}"), which throws sandbox errors.
+    function safe(v) {
+        return String(v === undefined || v === null ? '' : v)
+            .replace(/[{}\[\]]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
+    }
+
     function findItem(name) {
         var key = norm(name);
         var all = (CATALOG.weapons || []).concat(CATALOG.armor || []);
@@ -346,9 +353,9 @@ var ThraciaEquipment = (function () {
         var all = attrs.map(function (a) { return a.get('name') + ' = ' + a.get('current'); }).sort();
         log('=== equip-diag: ' + all.length + ' attributes on character ' + cid + ' ===');
         all.forEach(function (line) { log('  ' + line); });
-        var rx = /ac|armor|agi|init|speed|fumble|check|encumb|load/i;
+        var rx = /(armor|agility|initiative|speed|fumble|check_penalty|melee_attack|melee_damage|missile_attack|crit_die|crit_table|critical_threat|action_dice|^ac$|^armor_class$)/i;
         var relevant = attrs.filter(function (a) { return rx.test(a.get('name')); })
-            .map(function (a) { return a.get('name') + ' = ' + a.get('current'); }).sort();
+            .map(function (a) { return a.get('name') + ' = ' + safe(a.get('current')); }).sort();
         whisper(msg.who, '<b>' + all.length + ' attributes</b> dumped to the API console (copy them to me).' +
             '<br><b>Combat-relevant:</b><br>' + (relevant.join('<br>') || '(none matched)'));
     }
