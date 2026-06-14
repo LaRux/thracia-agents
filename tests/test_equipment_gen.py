@@ -175,6 +175,12 @@ class TestBuildScript:
         assert "addRow(cid, 'armor'" in js
         assert "generateRowID()" in js
 
+    def test_defines_generate_row_id(self):
+        # generateRowID is a sheet-worker global, absent in the mod sandbox, so
+        # the script must define its own.
+        js = build_script(VALID_CATALOG)
+        assert "function generateRowID()" in js
+
     def test_recomputes_homebrew_armor_layer(self):
         js = build_script(VALID_CATALOG)
         assert "recomputeArmor" in js

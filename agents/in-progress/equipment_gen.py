@@ -170,6 +170,33 @@ var ThraciaEquipment = (function () {
             .replace(/[{}\[\]]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
     }
 
+    // generateRowID() is a sheet-worker global, NOT available in the mod (API)
+    // sandbox, so define the community-standard implementation here.
+    var generateUUID = (function () {
+        var a = 0, b = [];
+        return function () {
+            var c = (new Date()).getTime() + 0, d = c === a;
+            a = c;
+            var e = new Array(8), f;
+            for (f = 7; f >= 0; f--) {
+                e[f] = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'.charAt(c % 64);
+                c = Math.floor(c / 64);
+            }
+            c = e.join('');
+            if (d) {
+                for (f = 11; f >= 0 && b[f] === 63; f--) { b[f] = 0; }
+                b[f]++;
+            } else {
+                for (f = 0; f < 12; f++) { b[f] = Math.floor(64 * Math.random()); }
+            }
+            for (f = 0; f < 12; f++) {
+                c += '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'.charAt(b[f]);
+            }
+            return c;
+        };
+    })();
+    function generateRowID() { return generateUUID().replace(/_/g, 'Z'); }
+
     function findItem(name) {
         var key = norm(name);
         var all = (CATALOG.weapons || []).concat(CATALOG.armor || []);
