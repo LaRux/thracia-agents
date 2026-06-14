@@ -186,6 +186,15 @@ class TestBuildScript:
         assert "recomputeArmor" in js
         assert "agility_modifier" in js
 
+    def test_writes_derived_values_directly(self):
+        # The DCC sheet won't recompute API rows, so the script must set the
+        # final armor_class / attack_bonus / initiative itself.
+        js = build_script(VALID_CATALOG)
+        assert "'armor_class'" in js
+        assert "attack_bonus" in js
+        assert "recomputeInit" in js
+        assert "'initiative'" in js
+
 
 class TestBuildHandout:
     def test_handout_shape(self):

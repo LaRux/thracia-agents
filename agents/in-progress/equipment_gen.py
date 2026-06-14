@@ -312,14 +312,16 @@ var ThraciaEquipment = (function () {
         var b = getAttrVal(cid, 'thr_base_speed', '');
         if (b === '' || b === null || b === undefined) {
             b = parseInt(getAttrVal(cid, 'speed', 30), 10);
-            if (isNaN(b)) b = 30;
+            if (isNaN(b) || b <= 0) b = 30;
             setAttr(cid, 'thr_base_speed', b);
         }
-        return parseInt(b, 10) || 30;
+        b = parseInt(b, 10);
+        return (isNaN(b) || b <= 0) ? 30 : b;
     }
 
-    // Recompute the homebrew layer (P/S/B vectors + speed) from the managed
-    // armor/shield rows. The sheet still owns the single armor_class.
+    // The DCC sheet does NOT recompute API-created rows, so we write the final
+    // armor_class, homebrew P/S/B vectors and speed directly from the managed
+    // armor/shield rows. (Manual armor entries are not tracked here.)
     function recomputeArmor(cid) {
         var rows = collectRows(cid, 'armor');
         var body = null, shieldBonus = 0;
@@ -332,20 +334,34 @@ var ThraciaEquipment = (function () {
                 body = findItem(rowField(r, 'name', ''));
             }
         }
-        var agl = aglMod(cid), p, s, b, speed = baseSpeed(cid);
+        var agl = aglMod(cid), p, s, b, single, speed = baseSpeed(cid);
         if (body) {
             var cap = (body.max_agl_mod === null || body.max_agl_mod === undefined)
                 ? agl : Math.min(agl, body.max_agl_mod);
             p = body.ac_piercing + cap + shieldBonus;
             s = body.ac_slashing + cap + shieldBonus;
             b = body.ac_bludgeoning + cap + shieldBonus;
+            single = body.base_ac + cap + shieldBonus;
             speed = baseSpeed(cid) + (body.speed_penalty || 0);
         } else {
-            p = s = b = 10 + agl + shieldBonus;
+            p = s = b = single = 10 + agl + shieldBonus;
         }
         writeVectors(cid, p, s, b);
+        setAttr(cid, 'armor_class', single);
         setAttr(cid, 'speed', speed);
-        return { p: p, s: s, b: b, speed: speed };
+        return { p: p, s: s, b: b, single: single, speed: speed };
+    }
+
+    // Set the initiative die directly (d16 if any managed two-handed weapon is
+    // equipped, else d20), combined with the agility modifier.
+    function recomputeInit(cid) {
+        var rows = collectRows(cid, 'weapons'), twoH = false;
+        for (var id in rows) {
+            var r = rows[id];
+            if (rowField(r, 'managed') === 'thr' && rowField(r, 'two_handed') === 'yes') twoH = true;
+        }
+        var agl = aglMod(cid);
+        setAttr(cid, 'initiative', (twoH ? '1d16' : '1d20') + (agl >= 0 ? '+' + agl : agl));
     }
 
     function equip(msg, name) {
@@ -356,16 +372,21 @@ var ThraciaEquipment = (function () {
         var cname = (getObj('character', cid) || { get: function () { return 'character'; } }).get('name');
 
         if (isWeapon(item)) {
-            // Sheet rolls d16 initiative when two_handed='yes'; house rule extends
-            // that to size L/XL. Attack bonus + final damage are computed by the sheet.
+            // Write derived attack bonus + damage directly (the sheet won't compute
+            // an API-created row). d16 init when two-handed; house rule adds L/XL.
             var twoH = (item.two_handed || item.size === 'L' || item.size === 'XL') ? 'yes' : 'no';
-            var skill = item.range === 'missile' ? 'ranged combat' : 'close combat';
+            var isMissile = item.range === 'missile';
+            var skill = isMissile ? 'ranged combat' : 'close combat';
+            var atk = parseInt(getAttrVal(cid, isMissile ? 'missile_attack' : 'melee_attack', 0), 10) || 0;
+            var dmgBonus = parseInt(getAttrVal(cid, isMissile ? 'missile_damage' : 'melee_damage', 0), 10) || 0;
+            var dmgStr = item.damage + (dmgBonus ? (dmgBonus > 0 ? '+' : '') + dmgBonus : '');
             addRow(cid, 'weapons', {
-                name: item.name, damage_base: item.damage,
+                name: item.name, damage_base: item.damage, damage: dmgStr, attack_bonus: atk,
                 two_handed: twoH, skill: skill, managed: 'thr'
             });
+            recomputeInit(cid);
             whisper(msg.who, '<b>' + safe(cname) + '</b> equipped <b>' + safe(item.name) + '</b> &mdash; ' +
-                item.damage + ' ' + item.damage_type + ', ' + skill +
+                'atk ' + (atk >= 0 ? '+' + atk : atk) + ', dmg ' + dmgStr + ', ' + skill +
                 (twoH === 'yes' ? ', two-handed (init d16)' : '') +
                 '. Crit: ' + safe(item.crit_note || 'standard') + '.');
             return;
@@ -390,8 +411,8 @@ var ThraciaEquipment = (function () {
         });
         var res = recomputeArmor(cid);
         whisper(msg.who, '<b>' + safe(cname) + '</b> ' + (wantShield ? 'raised' : 'donned') + ' <b>' +
-            safe(item.name) + '</b> &mdash; AC P' + res.p + '/S' + res.s + '/B' + res.b +
-            ', speed ' + res.speed + ", check " + (item.check_penalty || 0) +
+            safe(item.name) + '</b> &mdash; AC ' + res.single + ' (P' + res.p + '/S' + res.s + '/B' + res.b +
+            '), speed ' + res.speed + ", check " + (item.check_penalty || 0) +
             ', fumble ' + (item.fumble_die || '-') + '.');
     }
 
@@ -411,6 +432,7 @@ var ThraciaEquipment = (function () {
             }
         });
         if (armorTouched) recomputeArmor(cid);
+        recomputeInit(cid);
         whisper(msg.who, removed
             ? 'Unequipped "' + safe(name) + '"' + (armorTouched ? ' (AC recomputed).' : '.')
             : 'No managed item named "' + safe(name) + '" to unequip.');
