@@ -1,0 +1,261 @@
+
+
+========== PAGE INDEX 261 ==========
+
+a B
+ppendix
+NEW EQUIPMENT, MAGIC ITEMS,
+CURSES, AND SPELLS
+damage), wizards (Extended critical threat range; attacker
+NEW EQUIPMENT
+scores criticals against bane at 1 more result on the die (e.g.,
+if normally score criticals on 19-20, now score on 18-20));
+HEALING BUNDLE Communication: speech; Special Purposes: build a monu-
+ment to Chaos from the rubble of civilization, reward the
+This is a bundle of moss and lichens which, when applied ambitious at all costs, undermine authority, Special Pow-
+to the wounds of a victim who is bleeding out, staunches ers: detect water within 50’, speak thieves’ cant, frostburn
+bleeding and heals 1d3 hit points and reduces the Stamina (+1d3 cold damage, double damage to fire elementals),
+loss of bleeding out to a temporary loss. While useful for supreme willpower (+2 bonus to Willpower saves).
+any creature, these items are most effective with lizardman
+physiognomy. If used on a lizardman within 1 round of
+ANCIENT OCULARS
+its being slain, the lizardman is returned to 1 hit point and
+regains consciousness. No lizardman may benefit from this These glass beads have been crafted as exact replicas of
+natural healing more than once in a combat. human eyes. If implanted into a raw eye socket, the ocular
+takes on the user’s natural eye color and grants infravision
+CEREMONIAL PLATE 30’ (60’ if implanted with both eyes). Once per day, each of
+the oculars grants the ability to see through up to 1’ of stone
+While otherwise functioning as ordinary full plate armor, for 1 turn. When peering through stone, the eye color of the
+suits of Thracian ceremonial plate are exquisitely crafted ocular changes to brilliant gold.
+mobile works of art. The surfaces are etched with scenes of
+glorious battle, while the accompanying curved, semi-con-
+ical helms bear sculpted designs and mythical creatures DRAGON'S BANE
+with a faceplate bearing heroic features (often including a (+2 LONGSWORD)
+mighty mustache and beard).
+An utterly ordinary looking longsword, housed in an
+exceptional sheath crafted of basilisk hide. The wielder of
+NEW MAGIC ITEMS the blade may immediately access its frostburn ability, but
+the blade keeps its other powers secret and it is only when
+in the presence of a dragon that the spirit of the sword
+AITHRE makes its presence known to its wielder, granting access to
+its full suite of powers.
+(+2 LONGSWORD)
+INT 12; AL L; Bane: dragons (Death dealer; when bane is
+Aithre is a longsword crafted from a single crystal of
+struck, it must make a DC 25 Fortitude save or instantly
+the deepest blue. The blade delights in any opportunity
+die); Communication: empathy; Special Purposes: protect
+to corrupt a follower of Law who chooses to wield it,
+the weak, slay chaotic dragons; Special Powers: detect gold
+slowly working to subvert their actions to support the
+within 50’, detect dragons within 500’, frostburn (inflict
+cause of Chaos.
+additional 1d3 cold damage with every strike; double dam-
+INT 14; AL C; Bane: dwarves (Ability score drain; sword age to fire elementals), resistance to fire (wielder ignores
+inflicts normal damage plus 1d4 points of Strength per hit the first 3 points of fire damage each round, and gains a +1
+against bane), sphinxes (Additional +2 bonus to attack and bonus to saving throws against fire-based attacks).
+TTHHEE CCAAVVEERRNNSS OOFF TTHHRRAACCIIAA 261
+
+
+========== PAGE INDEX 262 ==========
+
+Armor AC Bonus Check Penalty Speed Fumble Die Cost in gp
+Ceremonial plate +8 -8 10’ d16 2,500
+Weapon Damage Range Cost in gp
+Jian 1d7+1 15
+Nunchaku Θ 1d5 10
+Rocket Θ ^ 1d6+blind 50/100/150 250
+Shuriken Θ 1d4 10/25/50 1
+Θ These weapons are not known outside of their native region, and warriors and dwarves wishing to use them must dedicate
+2d3 months to familiarize themselves to the point of being “trained” with them.
+^ Two-person weapon. The usage of this weapon requires two persons to prepare and fire in a single round, or one person may
+fire one after a full round of preparation. Characters using two-person weapons use a d16 on initiative checks.
+Jian: This finely crafted longsword is especially keen and lightweight. Wielders gain a +1 to attack rolls with
+this weapon.
+Nunchaku: These threshing flairs are made of two lengths of wood, joined by a short chain. Designed with speed
+in mind, characters using nunchaku use a d24 on initiative checks.
+Rocket: These rare weapons are difficult to control, suffering a -1d penalty to attack rolls. However, when they
+strike on target, they detonate and inflict damage on all creatures within a 10’ radius. Additionally, the flash of the
+explosion is bright enough to cause temporary blindness in all creatures within 20’ for 1d3 rounds (DC8 Fortitude
+save negates blindness).
+Shuriken: These star-shaped throwing blades are easily concealed and are perfectly weighted for throwing. When
+attacking with shuriken, multiples may be thrown in a single round, with each additional shuriken thrown suf-
+fering a cumulative -1d attack penalty. The number of shuriken to be thrown must be declared prior to any attack
+rolls being made.
+EARTHSHAKER the creature has natural weapons, they are maimed (e.g.,
+claws are broken, teeth are shattered, etc.)), cause earthquake
+(+2 TRIDENT)
+(1/new moon, result 24).
+Decorated with gold and silver taken from shipwrecks lost
+in the depths, this trident is encrusted with barnacles, its HELM OF TELEPATHY
+shaft being carved with images of entwining seaweed.
+This helmet, which can replace an ordinary helm, is embla-
+INT 9; AL L; Bane: elves (extended critical threat range;
+zoned with the symbol of an eye with lines radiating forth
+attacker scores criticals against bane at 1 more result on
+from it. The wearer may attempt to telepathically commu-
+the die (e.g., if normally score criticals on 19-20, now score
+nicate with any creature within line of sight. This, however,
+on 18-20)), thieves (Spotter: Earthshaker marks bane so it
+does not grant understanding of any particular language,
+is more easily attacked; allies can fire into melee between
+although images and even emotions can be conveyed in
+wielder and bane at no penalty and no chance of hitting
+this fashion. The target of the helm may attempt to resist
+wielder, and allies attacking bane with missile fire within
+communication by succeeding at a DC 12 Willpower save.
+100’ of Earthshaker receive a +1 attack bonus); Communi-
+Non-sentient and animal intelligence creatures are immune
+cation: empathy; Special Purpose: enforce the law, punish
+to the effects of the helmet.
+thieves; SP detect gems and gold within 40’, shed light 40’
+(at will), weapon-breaker (on any critical hit, the oppo-
+nent’s weapon is destroyed, in addition to other effects. If
+262 TTHHEE CCAAVVEERRNNSS OOFF TTHHRRAACCIIAA
+
+
+========== PAGE INDEX 263 ==========
+
+HORN OF TRITON OBSTRUCTOR
+(+1 LONGSWORD)
+A massive conch shell serves as the horn of the god Triton.
+By blowing upon it once, the seas within a 1-mile radius
+This simple looking longsword has a leather wrapped hilt
+may be calmed. Blowing on it a second time causes the seas
+with the image of a closed doorway on its pommel. Crea-
+to stir, bringing violent waves that overturn and sink small
+tures other than Chaotic alignment may use the sword as
+craft. A third sounding of the storm summons a tempest
+normal, but gain no access to its special power.
+capable of sinking ships and doing damage to coastal vil-
+lages. This powerful artifact is rarely out of the possession INT 6; AL C; Bane: humans (additional +1 to attack and
+of the god and, if acquired by a mortal, Triton certainly damage when facing bane); Communication: simple urges;
+endeavors to reacquire it by any means necessary. Special Powers: obstruction.
+Obstruction: When guarding a door or passageway, the
+MARBLE ELEPHANT
+wielder of the sword may seal it as per ward portal spell
+result 20. The portal automatically reappears once the
+This figurine is carved from pink marble and other than its
+wielder has completed combat by winning, losing, or
+minute size, is perfectly lifelike. Once per day the figure
+withdrawing.
+can be used to summon a phantom elephant which may
+be used to haul, once properly secured, up to one ton of
+weight. The elephant remains for 12 hours and moves
+at 50’ round.
+TTHHEE CCAAVVEERRNNSS OOFF TTHHRRAACCIIAA 263
+
+
+========== PAGE INDEX 264 ==========
+
+REPELLENT STAFF THIRSTER
+(MAGICAL SHORT SWORD)
+Fashioned from the heartwood of a caryatid/walnut hama-
+dryad, this staff exudes a 15’ cloud of scent that repels all
+This short sword is forged from a glittering alloy that is
+insects and small vermin, such as bats and rats. Particularly
+easily mistaken for gold (although dwarves are able to dis-
+insistent examples of vermin may attempt to penetrate the
+cern the difference with a successful DC 12 underground
+cloud upon a successful DC 14 Fortitude save.
+skills check). The cross guards of the blade are tipped with
+glittering quartz fangs.
+REUSABLE CANDLE
+INT 12; AL C; Communication: speech and telepathy;
+Highly prized by wizards, this magical candle burns as Languages: Chaos, Dragon, Troll; Special Powers: detect
+normal but, when snuffed, returns to its original length evil 30’, detect gems 40’, detect secret doors 20’, healing
+after a length of time equal to how long it was burning. (each point of Strength consumed by Thirster heals a living
+The candles are able to burn for a maximum of six hours. wielder 1 HD), Strength drainer (drains 1d4 Strength (PC)
+or suffers cumulative -1 to hit (NPC) with every blow, in
+addition to other damage), telepathy (grants its wielder
+RING OF CONTRARINESS
+telepathy extending 100’).
+This ring is made of twisted wires of steel and bronze, inset
+with a moonstone (worth 25 gp). This cursed item causes
+TRITON'S HORN
+its wearer to immediately do the opposite of whatever sug-
+gestion they are given, including actions putting their life
+Formed from a singularly long conch shell, this magical
+at risk (such as “don’t jump off that cliff”). The wearer may
+horn booms with a resounding call (1/turn) which inspires
+make a DC 20 Willpower save to ignore any individual act
+fear in all who hear it (DC 18 Willpower save or flee in
+of contrariness. The ring remains in place until the wearer
+terror for 1d3 hours). Once per week, the horn may also be
+has undertaken a life-threatening action, after which,
+blown to calm stormy seas or to raise a damaging storm.
+whether they live or die, the ring slides from their finger.
+UNBREAKABLE STAFF
+ROD OF ADHESION
+Carved from the heartwood of a laconiad/hickory hama-
+Crafted from the heartwood of a heldreichiad/maple
+dryad, this short, 4’ staff is unbreakable by normal means.
+hamadryad, touching the rod’s tip to an object leaves
+No matter the weight or pressure put upon it, it cannot be
+behind a powerful adhesive that can be used to glue objects
+broken, although it can be dislodged if not properly braced.
+together. It requires a successful DC 14 Strength Check to
+It may be damaged or destroyed by magical means, such as
+pull the items apart. Fragile items (such as parchment or
+the shatter spell with a spell result of 22+.
+glass) require a successful Luck check to separate without
+destroying them. Finally, living flesh tears more easily
+than it will pull free. A single hand suffers 1 damage, an
+NEW CURSES
+entire limb suffers 2 damage, and a torso suffers 3 dam-
+age. A face adhered this way is disfigured as pieces of flesh
+are torn free.
+CURSE OF THANATOS
+(MODERATE CURSE)
+ROD OF THANATOS
+T
+hose who’s blasphemous trespasses have drawn
+This 3’-long, skull capped rod is carved from a single piece
+the ire of Thanatos find it increasingly difficult
+of obsidian. In the hands of a wizard with arcane affinity
+to avoid the Dark One’s embrace. The curse car-
+(necromancy) it allows them to control un-dead as if they
+ries a -2 Luck penalty and the victim’s body ceases to heal
+were a cleric of Thanatos of equal level.
+wounds naturally with rest. Further, as most gods are loath
+to arouse the anger of Death itself, healing via lay on hands
+suffers a -1d penalty. The sole exception to this penalty are
+the workings of clerics of other incarnations of Death (such
+as the Carnifex or Hades).
+264 TTHHEE CCAAVVEERRNNSS OOFF TTHHRRAACCIIAA
+
+
+========== PAGE INDEX 265 ==========
+
+The curse may be voluntarily lifted by any cleric of Thana-
+tos who chooses to do so by use of remove curse. Otherwise,
+the curse ends after the victim’s next close brush with death
+when their body is recovered after having bled out.
+CURSE OF THRACIAN MUD
+(MODERATE CURSE)
+This curse is borne by those who have drowned in the
+Thracian swamps and have risen again as un-dead. The
+victim’s mouth, throat, and lungs, fill with thick swamp
+mud causing them to immediately begin to drown. The
+afflicted must make a DC 10 Fortitude save each round or
+temporarily lose 1 point of Stamina. Because of the continu-
+ing flow of mud (lasting 2d5 rounds) the save DC increases
+by 2 each round after the first. A drowning PC can take no
+actions and must be rescued by another character. When a
+PC’s Stamina reaches 0, they die. If the PC is rescued, the
+lost Stamina is restored immediately. When the duration of
+the mud flow has elapsed, it automatically ends.
+NEW SPELLS
+NEW WIZARD SPELLS
+1st-Level 2nd-Level 3rd-Level
+Silence*
+NEW CLERIC SPELLS
+1st-Level 2nd-Level 3rd-Level
+Silence
+NEW PATRON SPELLS
+Rapture of the Deep (Triton) Challenge Deep (Triton)
+* As per cleric spell of same name. If the wizard version of the spell is a different spell level, the wizard receives a
+-2 penalty to spell checks when casting it. For example, silence is a 1st-level cleric spell but a 2nd-level wizard spell;
+therefore, when rolling on the spell table, the wizard applies a -2 penalty to spell checks. On a result of natural 1,
+the wizard suffers a 50% chance of major corruption or misfire, rolling on the generic tables as appropriate.
+TTHHEE CCAAVVEERRNNSS OOFF TTHHRRAACCIIAA 265

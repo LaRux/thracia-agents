@@ -45,6 +45,7 @@ Commands:
   monster    Generate Roll20 NPC sheets from stat block source material
   room       Generate DM descriptions and player handouts for dungeon rooms
   encounter  Generate wandering monster tables for a dungeon level
+  equipment  Generate the Roll20 equip/lookup mod script from the gear catalog
   qa         Run QA validation on pending agent output
   sheet      Audit or patch the Roll20 DCC character sheet
   session    Commit a reviewed post-session draft to the Obsidian vault
@@ -135,6 +136,30 @@ Commands:
     )
 
     # -------------------------------------------------------------------------
+    # equipment command — build the Roll20 mod script, or validate the catalog
+    # -------------------------------------------------------------------------
+    equipment_parser = subparsers.add_parser(
+        'equipment',
+        help='Generate the Roll20 equip/lookup mod script from data/input/equipment.json'
+    )
+    equipment_parser.add_argument(
+        '--build', action='store_true',
+        help='Validate the catalog and write data/output/ready/equipment.js (mod script)'
+    )
+    equipment_parser.add_argument(
+        '--handout', action='store_true',
+        help='Write the player-facing gear handout to data/output/pending/ (run `qa` to validate)'
+    )
+    equipment_parser.add_argument(
+        '--macros', action='store_true',
+        help='Write the Roll20 macro-button cheat sheet to data/output/ready/equipment_macros.md'
+    )
+    equipment_parser.add_argument(
+        '--validate', action='store_true',
+        help='Validate data/input/equipment.json and print any errors (no output written)'
+    )
+
+    # -------------------------------------------------------------------------
     # qa command
     # -------------------------------------------------------------------------
     qa_parser = subparsers.add_parser(
@@ -186,6 +211,7 @@ def main():
     import parse_pdf
     import room_gen
     import encounter_gen
+    import equipment_gen
 
     def _resolve_sections(a, pages_key):
         """Return {section_key: (start, end)} from CLI args + pdf_sections.json."""
@@ -231,6 +257,24 @@ def main():
             staged = parse_pdf.extract_wandering(section_key, pages, reextract=a.reextract)
             encounter_gen.run(section_key, str(staged))
 
+    def handle_equipment(a):
+        if a.validate:
+            errors = equipment_gen.validate_catalog(equipment_gen.load_catalog())
+            if errors:
+                print(f"[EquipmentGen] {len(errors)} catalog error(s):")
+                for e in errors:
+                    print(f"  - {e}")
+            else:
+                print("[EquipmentGen] Catalog valid.")
+        if a.build:
+            equipment_gen.run()
+        if a.handout:
+            equipment_gen.run_handout()
+        if a.macros:
+            equipment_gen.run_macros()
+        if not (a.validate or a.build or a.handout or a.macros):
+            print("Specify --build, --handout, --macros, and/or --validate. See --help.")
+
     def handle_sheet(a):
         if a.audit:
             sheet_auditor.run()
@@ -243,6 +287,7 @@ def main():
         'monster':   handle_monster,
         'room':      handle_room,
         'encounter': handle_encounter,
+        'equipment': handle_equipment,
         'qa':        lambda a: qa_checker.run(),
         'sheet':     handle_sheet,
         'session':   lambda a: print(f"[Session:{a.session_action}] Not yet implemented. Args: {vars(a)}"),
