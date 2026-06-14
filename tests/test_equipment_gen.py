@@ -115,7 +115,7 @@ class TestArmorVectors:
 class TestBuildScript:
     def test_contains_each_command(self):
         js = build_script(VALID_CATALOG)
-        for cmd in ("equip", "unequip", "armor", "weapon", "crit", "equip-list"):
+        for cmd in ("equip", "unequip", "armor", "weapon", "crit", "equip-list", "equip-diag"):
             assert "'" + cmd + "'" in js or "case '" + cmd + "'" in js
 
     def test_embedded_catalog_parses(self):

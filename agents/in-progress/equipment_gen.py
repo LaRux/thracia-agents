@@ -9,6 +9,8 @@
 #   !weapon <name>     whisper a weapon's damage, type, and homebrew property
 #   !crit <weapon>     whisper the weapon's crit effect
 #   !equip-list        whisper the catalog index
+#   !equip-diag        dump the selected sheet's attributes (to find real field
+#                      names / verify which fields the API can set)
 #
 # This mirrors encounter_gen.py: read staged data -> validate -> emit a ready
 # .js. No Claude call — the catalog is static reference data.
@@ -289,6 +291,38 @@ var ThraciaEquipment = (function () {
         whisper(msg.who, '<b>Weapons:</b> ' + w + '<br><b>Armor:</b> ' + a);
     }
 
+    // Diagnostic: discover this sheet's real attribute names and which fields
+    // the API can actually set (vs. fields the sheet recomputes/clobbers).
+    //   !equip-diag        dump all attrs to API console, whisper the relevant subset
+    //   !equip-diag probe  write sentinel values (99 / 1d99) to candidate fields
+    function diag(msg, arg) {
+        var cid = charFromMsg(msg);
+        if (!cid) { whisper(msg.who, 'Select a token that represents a character first.'); return; }
+        var attrs = findObjs({ type: 'attribute', characterid: cid });
+
+        if (norm(arg) === 'probe') {
+            var sentinels = {
+                armor_class: '99', ac: '99', speed: '99', speed_mod: '99',
+                initiative: '1d99', initiative_overwritten: '1d99', initiative_mod: '99'
+            };
+            var wrote = [];
+            for (var k in sentinels) { setAttr(cid, k, sentinels[k]); wrote.push(k); }
+            whisper(msg.who, 'Probe wrote sentinels (99 / 1d99) to: ' + wrote.join(', ') +
+                '.<br>Open the sheet and note which sentinels actually show &mdash; those fields are ' +
+                'API-writable. Reset/re-open the sheet afterward. (Use a disposable test PC.)');
+            return;
+        }
+
+        var all = attrs.map(function (a) { return a.get('name') + ' = ' + a.get('current'); }).sort();
+        log('=== equip-diag: ' + all.length + ' attributes on character ' + cid + ' ===');
+        all.forEach(function (line) { log('  ' + line); });
+        var rx = /ac|armor|agi|init|speed|fumble|check|encumb|load/i;
+        var relevant = attrs.filter(function (a) { return rx.test(a.get('name')); })
+            .map(function (a) { return a.get('name') + ' = ' + a.get('current'); }).sort();
+        whisper(msg.who, '<b>' + all.length + ' attributes</b> dumped to the API console (copy them to me).' +
+            '<br><b>Combat-relevant:</b><br>' + (relevant.join('<br>') || '(none matched)'));
+    }
+
     function handle(msg) {
         if (msg.type !== 'api') return;
         var parts = msg.content.replace(/^!/, '').split(/\s+/);
@@ -301,6 +335,7 @@ var ThraciaEquipment = (function () {
             case 'weapon': lookupWeapon(msg, arg); break;
             case 'crit': lookupCrit(msg, arg); break;
             case 'equip-list': listAll(msg); break;
+            case 'equip-diag': diag(msg, arg); break;
         }
     }
 
