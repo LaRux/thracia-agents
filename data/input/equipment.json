@@ -60,5 +60,13 @@
     {"name": "Round shield", "is_shield": true, "ac_bonus_all": 2, "check_penalty": -2, "fumble_die": "d8", "cost": "30 gp", "notes": "+4 AC in a narrow space or shield wall"},
     {"name": "Tower shield", "is_shield": true, "ac_bonus_all": 3, "check_penalty": -4, "fumble_die": "d12", "cost": "50 gp", "notes": "Initiative -1 die; +8 AC in a narrow space or shield wall"},
     {"name": "Pavise", "is_shield": true, "ac_bonus_all": 2, "check_penalty": 0, "fumble_die": "—", "cost": "20 gp", "notes": "Immobile; action to set up; minor cover vs ranged (-2 to attacker)"}
+  ],
+  "magic_items": [
+    {"name": "Aithre", "base": "Longsword", "attack_bonus": 2, "damage_bonus": 2, "rarity": "unique", "special": "Intelligent +2 longsword (INT 14, Chaotic). Bane dwarves: +1d4 STR drain/hit; bane sphinxes: +2 atk/dmg and wider crit vs them. Frostburn: +1d3 cold per strike (x2 vs fire elementals). +2 to Will saves. Slowly corrupts a Lawful wielder."},
+    {"name": "Dragon's Bane", "base": "Longsword", "attack_bonus": 2, "damage_bonus": 2, "rarity": "unique", "special": "Intelligent +2 longsword (INT 12, Lawful). Bane dragons: on hit, target makes DC 25 Fort save or dies. Frostburn: +1d3 cold (x2 vs fire elementals). Resist fire: ignore first 3 fire dmg/round, +1 save vs fire. Full powers reveal only near a dragon."},
+    {"name": "Earthshaker", "base": "Spear", "attack_bonus": 2, "damage_bonus": 2, "rarity": "unique", "special": "Intelligent +2 trident (INT 9, Lawful). Bane elves: wider crit; bane thieves: allies may fire into melee at it freely, +1 to missile attacks within 100'. Detect gems/gold 40'; shed light 40' at will. Weapon-breaker: on a crit, destroy the foe's weapon (or maim natural weapons). Cause earthquake 1/new moon."},
+    {"name": "Obstructor", "base": "Longsword", "attack_bonus": 1, "damage_bonus": 1, "rarity": "unique", "special": "Intelligent +1 longsword (INT 6, Chaotic). Bane humans: +1 atk/dmg. Obstruction: while guarding a door/passage, seal it as ward portal (result 20) once per combat. Non-Chaotic wielders get no special power."},
+    {"name": "Thirster", "base": "Short sword", "attack_bonus": 0, "damage_bonus": 0, "rarity": "unique", "special": "Intelligent magical short sword (INT 12, Chaotic). Strength drainer: drains 1d4 STR per hit (PC) or inflicts cumulative -1 to-hit (NPC). Healing: each STR drained heals the wielder 1 HD. Detect evil/gems/secret doors; telepathy 100'. Speaks Chaos, Dragon, Troll."},
+    {"name": "Ceremonial Plate", "base": "Full plate", "ac_bonus": 0, "rarity": "unique", "special": "Thracian ceremonial full plate — an exquisite masterwork; mechanically identical to full plate (check -8, speed -10', fumble d16). Cost ~2,500 gp."}
   ]
 }

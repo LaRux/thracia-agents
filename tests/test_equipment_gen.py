@@ -12,6 +12,8 @@ from equipment_gen import (
     capped_vectors,
     armor_vector_string,
     apply_shield,
+    find_base,
+    magic_overlay,
     build_script,
     build_handout,
 )
@@ -147,6 +149,73 @@ class TestArmorVectors:
     def test_uneven_vectors_preserved(self):
         # e.g. chain mail S17/P15/B13 + shield +2
         assert apply_shield((15, 17, 13), 2) == (17, 19, 15)
+
+
+MAGIC_CATALOG = {
+    "weapons": [
+        {"name": "Longsword", "damage": "1d8", "damage_type": "slashing", "size": "M",
+         "range": "melee", "crit_note": "+1 to crit range"},
+    ],
+    "armor": [
+        {"name": "Full plate", "base_ac": 18, "ac_slashing": 22, "ac_piercing": 21,
+         "ac_bludgeoning": 18, "max_agl_mod": 0, "check_penalty": -8, "speed_penalty": -10,
+         "fumble_die": "d16", "is_shield": False},
+    ],
+    "magic_items": [
+        {"name": "Aithre", "base": "Longsword", "attack_bonus": 2, "damage_bonus": 2,
+         "special": "Intelligent +2 longsword."},
+        {"name": "Ceremonial Plate", "base": "Full plate", "ac_bonus": 0,
+         "special": "Masterwork full plate."},
+    ],
+}
+
+
+class TestMagicItems:
+    def test_valid_magic_catalog_passes(self):
+        assert validate_catalog(MAGIC_CATALOG) == []
+
+    def test_unknown_base_fails(self):
+        cat = {"weapons": [], "armor": [],
+               "magic_items": [{"name": "Ghost Blade", "base": "Katana", "attack_bonus": 1}]}
+        errors = validate_catalog(cat)
+        assert any("base" in e for e in errors)
+
+    def test_non_integer_bonus_fails(self):
+        cat = {"weapons": MAGIC_CATALOG["weapons"], "armor": [],
+               "magic_items": [{"name": "X", "base": "Longsword", "attack_bonus": "2"}]}
+        errors = validate_catalog(cat)
+        assert any("attack_bonus" in e for e in errors)
+
+    def test_magic_name_collision_with_base_fails(self):
+        cat = {"weapons": MAGIC_CATALOG["weapons"], "armor": [],
+               "magic_items": [{"name": "Longsword", "base": "Longsword"}]}
+        errors = validate_catalog(cat)
+        assert any("duplicate" in e for e in errors)
+
+    def test_find_base_resolves(self):
+        base = find_base(MAGIC_CATALOG, "longsword")
+        assert base["name"] == "Longsword"
+
+    def test_magic_overlay_fields(self):
+        ov = magic_overlay(MAGIC_CATALOG["magic_items"][0])
+        assert ov == {"display": "Aithre", "attack_bonus": 2, "damage_bonus": 2,
+                      "ac_bonus": 0, "special": "Intelligent +2 longsword."}
+
+    def test_real_catalog_has_magic_items_and_validates(self):
+        cat = load_catalog()
+        assert cat.get("magic_items")
+        assert validate_catalog(cat) == []
+
+    def test_handout_includes_magic_section(self):
+        h = build_handout(MAGIC_CATALOG)
+        assert "Magic Items" in h["notes"]
+        assert "Aithre" in h["notes"]
+
+    def test_script_supports_magic_and_inline(self):
+        js = build_script(MAGIC_CATALOG)
+        assert "magicByName" in js
+        assert "parseEquipArg" in js
+        assert "magic_items" in js  # embedded catalog
 
 
 class TestBuildScript:

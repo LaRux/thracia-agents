@@ -71,7 +71,25 @@ def validate_catalog(catalog):
                 if not isinstance(a.get(field), int):
                     errors.append(f"armor {label}: '{field}' must be an integer")
 
-    names = [item.get('name', '') for item in weapons + armor]
+    magic = catalog.get('magic_items', [])
+    if not isinstance(magic, list):
+        errors.append("'magic_items' must be a list")
+        magic = []
+
+    base_names = {item.get('name', '').strip().lower() for item in weapons + armor}
+    for i, mi in enumerate(magic):
+        label = mi.get('name', f'#{i}')
+        if 'name' not in mi:
+            errors.append(f"magic item {label}: missing 'name'")
+        if 'base' not in mi:
+            errors.append(f"magic item {label}: missing 'base'")
+        elif mi['base'].strip().lower() not in base_names:
+            errors.append(f"magic item {label}: base {mi['base']!r} is not a catalog weapon/armor")
+        for field in ('attack_bonus', 'damage_bonus', 'ac_bonus'):
+            if field in mi and not isinstance(mi[field], int):
+                errors.append(f"magic item {label}: '{field}' must be an integer")
+
+    names = [item.get('name', '') for item in weapons + armor + magic]
     seen = set()
     for n in names:
         key = n.strip().lower()
@@ -148,6 +166,27 @@ def apply_shield(vectors, bonus):
     return (p + bonus, s + bonus, b + bonus)
 
 
+def find_base(catalog, name):
+    """Return the base weapon/armor dict matching name (case-insensitive), or None."""
+    key = name.strip().lower()
+    for item in catalog.get('weapons', []) + catalog.get('armor', []):
+        if item.get('name', '').strip().lower() == key:
+            return item
+    return None
+
+
+def magic_overlay(magic_item):
+    """Normalize a magic item into the additive overlay the equip flow applies
+    on top of its base: display name + flat attack/damage/AC bonuses + special."""
+    return {
+        'display': magic_item['name'],
+        'attack_bonus': magic_item.get('attack_bonus', 0),
+        'damage_bonus': magic_item.get('damage_bonus', 0),
+        'ac_bonus': magic_item.get('ac_bonus', 0),
+        'special': magic_item.get('special', ''),
+    }
+
+
 # --- Roll20 mod script body (logic is written once here in JS) ---------------
 # The catalog is injected ahead of this block as `var CATALOG = {...};`.
 _SCRIPT_BODY = r"""
@@ -197,13 +236,48 @@ var ThraciaEquipment = (function () {
     })();
     function generateRowID() { return generateUUID().replace(/_/g, 'Z'); }
 
+    function magicByName(name) {
+        var key = norm(name);
+        var ms = CATALOG.magic_items || [];
+        for (var i = 0; i < ms.length; i++) { if (norm(ms[i].name) === key) return ms[i]; }
+        return null;
+    }
+
     function findItem(name) {
         var key = norm(name);
         var all = (CATALOG.weapons || []).concat(CATALOG.armor || []);
         for (var i = 0; i < all.length; i++) {
             if (norm(all[i].name) === key) return all[i];
         }
-        return null;
+        var m = magicByName(name);   // magic item name -> resolve to its base
+        return m ? findItem(m.base) : null;
+    }
+
+    // Parse "Base Item --name X --atk 1 --dmg 1 --ac 1 --note text" into
+    // {base, mods}. Lets the GM grant ad-hoc magic items without a catalog edit.
+    function parseEquipArg(arg) {
+        var s = String(arg || '');
+        var idx = s.indexOf(' --');
+        if (idx < 0) return { base: s.trim(), mods: {} };
+        var base = s.slice(0, idx).trim(), mods = {};
+        s.slice(idx + 1).split(/\s+--/).forEach(function (seg) {
+            seg = seg.replace(/^--/, '').trim();
+            if (!seg) return;
+            var sp = seg.indexOf(' ');
+            var key = (sp < 0 ? seg : seg.slice(0, sp)).toLowerCase();
+            var val = (sp < 0 ? '' : seg.slice(sp + 1)).trim().replace(/^["']|["']$/g, '');
+            mods[key] = val;
+        });
+        return { base: base, mods: mods };
+    }
+
+    // Record a magic item's special text on the character's description (the
+    // sheet has no per-row notes field), once per item name.
+    function noteSpecial(cid, itemName, special) {
+        var desc = String(getAttrVal(cid, 'description', '') || '');
+        if (desc.indexOf(itemName + ':') === -1) {
+            setAttr(cid, 'description', (desc ? desc + '\n' : '') + itemName + ': ' + special);
+        }
     }
 
     function isWeapon(item) { return item && item.range !== undefined && item.damage !== undefined; }
@@ -324,24 +398,26 @@ var ThraciaEquipment = (function () {
     // armor/shield rows. (Manual armor entries are not tracked here.)
     function recomputeArmor(cid) {
         var rows = collectRows(cid, 'armor');
-        var body = null, shieldBonus = 0;
+        var body = null, bodyMagicAc = 0, shieldBonus = 0;
         for (var id in rows) {
             var r = rows[id];
             if (rowField(r, 'managed') !== 'thr') continue;
             if (rowField(r, 'shield') === 'yes') {
-                shieldBonus += parseInt(rowField(r, 'ac_bonus', 0), 10) || 0;
+                shieldBonus += parseInt(rowField(r, 'ac_bonus', 0), 10) || 0;  // includes any magic shield bonus
             } else {
-                body = findItem(rowField(r, 'name', ''));
+                body = findItem(rowField(r, 'base_item', rowField(r, 'name', '')));
+                bodyMagicAc = parseInt(rowField(r, 'magic_ac', 0), 10) || 0;
             }
         }
         var agl = aglMod(cid), p, s, b, single, speed = baseSpeed(cid);
         if (body) {
             var cap = (body.max_agl_mod === null || body.max_agl_mod === undefined)
                 ? agl : Math.min(agl, body.max_agl_mod);
-            p = body.ac_piercing + cap + shieldBonus;
-            s = body.ac_slashing + cap + shieldBonus;
-            b = body.ac_bludgeoning + cap + shieldBonus;
-            single = body.base_ac + cap + shieldBonus;
+            var add = cap + shieldBonus + bodyMagicAc;
+            p = body.ac_piercing + add;
+            s = body.ac_slashing + add;
+            b = body.ac_bludgeoning + add;
+            single = body.base_ac + add;
             speed = baseSpeed(cid) + (body.speed_penalty || 0);
         } else {
             p = s = b = single = 10 + agl + shieldBonus;
@@ -364,36 +440,57 @@ var ThraciaEquipment = (function () {
         setAttr(cid, 'initiative', (twoH ? '1d16' : '1d20') + (agl >= 0 ? '+' + agl : agl));
     }
 
-    function equip(msg, name) {
-        var item = findItem(name);
-        if (!item) { whisper(msg.who, 'No item named "' + safe(name) + '". Try !equip-list.'); return; }
+    function equip(msg, arg) {
+        var parsed = parseEquipArg(arg);
+        var item = findItem(parsed.base);
+        if (!item) { whisper(msg.who, 'No item named "' + safe(parsed.base) + '". Try !equip-list.'); return; }
         var cid = charFromMsg(msg);
         if (!cid) { whisper(msg.who, 'Select a token that represents a character first.'); return; }
         var cname = (getObj('character', cid) || { get: function () { return 'character'; } }).get('name');
 
+        // Additive magic overlay: a predefined magic item, then any inline --flags.
+        var magic = magicByName(parsed.base), m = parsed.mods;
+        var ov = {
+            display: magic ? magic.name : item.name,
+            attack_bonus: magic ? (magic.attack_bonus || 0) : 0,
+            damage_bonus: magic ? (magic.damage_bonus || 0) : 0,
+            ac_bonus: magic ? (magic.ac_bonus || 0) : 0,
+            special: magic ? (magic.special || '') : ''
+        };
+        if (m.name) ov.display = m.name;
+        if (m.atk !== undefined) ov.attack_bonus += parseInt(m.atk, 10) || 0;
+        if (m.dmg !== undefined) ov.damage_bonus += parseInt(m.dmg, 10) || 0;
+        if (m.ac !== undefined) ov.ac_bonus += parseInt(m.ac, 10) || 0;
+        if (m.note) ov.special = ov.special ? (ov.special + ' ' + m.note) : m.note;
+        var isMagic = !!magic || !!(m.name || m.atk !== undefined || m.dmg !== undefined ||
+            m.ac !== undefined || m.note);
+
         if (isWeapon(item)) {
             // Write derived attack bonus + damage directly (the sheet won't compute
-            // an API-created row). d16 init when two-handed; house rule adds L/XL.
+            // an API-created row), folding in the magic overlay.
             var twoH = (item.two_handed || item.size === 'L' || item.size === 'XL') ? 'yes' : 'no';
             var isMissile = item.range === 'missile';
             var skill = isMissile ? 'ranged combat' : 'close combat';
-            var atk = parseInt(getAttrVal(cid, isMissile ? 'missile_attack' : 'melee_attack', 0), 10) || 0;
-            var dmgBonus = parseInt(getAttrVal(cid, isMissile ? 'missile_damage' : 'melee_damage', 0), 10) || 0;
+            var atk = (parseInt(getAttrVal(cid, isMissile ? 'missile_attack' : 'melee_attack', 0), 10) || 0)
+                + ov.attack_bonus;
+            var dmgBonus = (parseInt(getAttrVal(cid, isMissile ? 'missile_damage' : 'melee_damage', 0), 10) || 0)
+                + ov.damage_bonus;
             var dmgStr = item.damage + (dmgBonus ? (dmgBonus > 0 ? '+' : '') + dmgBonus : '');
             addRow(cid, 'weapons', {
-                name: item.name, damage_base: item.damage, damage: dmgStr, attack_bonus: atk,
+                name: ov.display, damage_base: item.damage, damage: dmgStr, attack_bonus: atk,
                 two_handed: twoH, skill: skill, managed: 'thr'
             });
             recomputeInit(cid);
-            whisper(msg.who, '<b>' + safe(cname) + '</b> equipped <b>' + safe(item.name) + '</b> &mdash; ' +
+            if (ov.special) noteSpecial(cid, ov.display, ov.special);
+            whisper(msg.who, '<b>' + safe(cname) + '</b> equipped <b>' + safe(ov.display) + '</b> &mdash; ' +
                 'atk ' + (atk >= 0 ? '+' + atk : atk) + ', dmg ' + dmgStr + ', ' + skill +
                 (twoH === 'yes' ? ', two-handed (init d16)' : '') +
-                '. Crit: ' + safe(item.crit_note || 'standard') + '.');
+                (isMagic ? '. <i>' + safe(ov.special || 'magic') + '</i>'
+                         : '. Crit: ' + safe(item.crit_note || 'standard') + '.'));
             return;
         }
 
-        // Armor / shield: write the sheet's native row (it computes armor_class,
-        // check penalty, fumble die), then recompute the homebrew vectors + speed.
+        // Armor / shield: write the native row, then recompute vectors + speed.
         var wantShield = !!item.is_shield;
         var rows = collectRows(cid, 'armor');
         for (var id in rows) {       // replace the existing managed row of the same kind
@@ -402,18 +499,22 @@ var ThraciaEquipment = (function () {
             if ((rowField(r, 'shield') === 'yes') === wantShield) removeRow(r);
         }
         addRow(cid, 'armor', {
-            name: item.name,
-            ac_bonus: wantShield ? (item.ac_bonus_all || 0) : (item.base_ac - 10),
+            name: ov.display,
+            base_item: item.name,
+            ac_bonus: (wantShield ? (item.ac_bonus_all || 0) : (item.base_ac - 10)) + ov.ac_bonus,
+            magic_ac: ov.ac_bonus,
             check_penalty: item.check_penalty || 0,
             fumble_die: item.fumble_die || '',
             shield: wantShield ? 'yes' : 'no',
             active: '1', quantity: '1', managed: 'thr'
         });
+        if (ov.special) noteSpecial(cid, ov.display, ov.special);
         var res = recomputeArmor(cid);
         whisper(msg.who, '<b>' + safe(cname) + '</b> ' + (wantShield ? 'raised' : 'donned') + ' <b>' +
-            safe(item.name) + '</b> &mdash; AC ' + res.single + ' (P' + res.p + '/S' + res.s + '/B' + res.b +
+            safe(ov.display) + '</b> &mdash; AC ' + res.single + ' (P' + res.p + '/S' + res.s + '/B' + res.b +
             '), speed ' + res.speed + ", check " + (item.check_penalty || 0) +
-            ', fumble ' + (item.fumble_die || '-') + '.');
+            ', fumble ' + (item.fumble_die || '-') +
+            (ov.special ? '. <i>' + safe(ov.special) + '</i>' : '') + '.');
     }
 
     function unequip(msg, name) {
@@ -487,7 +588,10 @@ var ThraciaEquipment = (function () {
     function listAll(msg) {
         var w = (CATALOG.weapons || []).map(function (i) { return i.name; }).join(', ');
         var a = (CATALOG.armor || []).map(function (i) { return i.name; }).join(', ');
-        whisper(msg.who, '<b>Weapons:</b> ' + w + '<br><b>Armor:</b> ' + a);
+        var out = '<b>Weapons:</b> ' + w + '<br><b>Armor:</b> ' + a;
+        var mi = (CATALOG.magic_items || []).map(function (i) { return i.name; });
+        if (mi.length) out += '<br><b>Magic:</b> ' + mi.join(', ');
+        whisper(msg.who, out);
     }
 
     // Diagnostic: discover this sheet's real attribute names and which fields
@@ -676,6 +780,31 @@ def build_shields_table_html(armor):
     return f"<table border='1' cellpadding='4'><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
 
 
+def build_magic_table_html(magic_items):
+    """Render the magic weapons/armor reference table as HTML."""
+    if not magic_items:
+        return ""
+    head = "<tr><th>Item</th><th>Base</th><th>Bonus</th><th>Special</th></tr>"
+    rows = []
+    for mi in magic_items:
+        bonus_bits = []
+        if mi.get('attack_bonus'):
+            bonus_bits.append(f"+{mi['attack_bonus']} atk")
+        if mi.get('damage_bonus'):
+            bonus_bits.append(f"+{mi['damage_bonus']} dmg")
+        if mi.get('ac_bonus'):
+            bonus_bits.append(f"+{mi['ac_bonus']} AC")
+        rows.append(
+            "<tr>"
+            f"<td><strong>{_esc(mi['name'])}</strong></td>"
+            f"<td>{_esc(mi.get('base', '-'))}</td>"
+            f"<td>{_esc(', '.join(bonus_bits) or '-')}</td>"
+            f"<td>{_esc(mi.get('special', ''))}</td>"
+            "</tr>"
+        )
+    return f"<table border='1' cellpadding='4'><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
+
+
 def build_handout(catalog):
     """Build a Roll20 handout dict with a browsable, player-facing gear list.
 
@@ -684,6 +813,7 @@ def build_handout(catalog):
     """
     weapons = catalog.get('weapons', [])
     armor = catalog.get('armor', [])
+    magic = catalog.get('magic_items', [])
     notes = (
         "<h2>Weapons &amp; Armor</h2>"
         "<p>Armor protects differently against each damage type. AC is shown as "
@@ -695,6 +825,7 @@ def build_handout(catalog):
         + build_armor_table_html(armor)
         + "<h3>Shields</h3>"
         + build_shields_table_html(armor)
+        + (("<h3>Magic Items</h3>" + build_magic_table_html(magic)) if magic else "")
     )
     gmnotes = (
         "Auto-generated from data/input/equipment.json by equipment_gen. "
