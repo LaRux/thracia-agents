@@ -8,6 +8,7 @@
 #   !armor [name]      whisper an armor's P/S/B AC and penalties
 #   !weapon <name>     whisper a weapon's damage, type, and homebrew property
 #   !crit <weapon>     whisper the weapon's crit effect
+#   !ac [name]         whisper a character's current P/S/B vectors + speed
 #   !equip-list        whisper the catalog index
 #   !equip-diag [name] dump a sheet's attributes (by character name, or the
 #                      selected token) to find real field names / verify which
@@ -81,24 +82,59 @@ def validate_catalog(catalog):
     return errors
 
 
-def weapon_attrs(weapon):
-    """Repeating-section field suffixes -> values for an equipped weapon.
+# These helpers define the contract the generated JS implements against the
+# real DCC sheet (v1.07) field names discovered via !equip-diag:
+#   repeating_weapons_<id>_{name,damage_base,two_handed,skill}
+#   repeating_armor_<id>_{name,ac_bonus,check_penalty,fumble_die,shield,active}
+# The sheet's own sheetworkers then compute armor_class, attack, damage,
+# initiative die (d16 when two_handed='yes'), check penalty and fumble die.
+# We only add the homebrew P/S/B vectors and speed on top.
 
-    The generated script writes these as repeating_weapons_<rowid>_<suffix>.
-    Derived attack bonus is intentionally left to the sheet (it depends on the
-    character's STR/AGL/level).
+def weapon_row(weapon):
+    """repeating_weapons field values for an equipped weapon.
+
+    Initiative die: the sheet rolls d16 when two_handed == 'yes'; per house rule
+    that also covers size L/XL weapons. Attack bonus / final damage are left to
+    the sheet (they depend on STR/AGL/level + skill).
     """
+    two_handed = bool(weapon.get('two_handed')) or weapon.get('size') in ('L', 'XL')
     return {
         'name': weapon['name'],
-        'damage': weapon['damage'],
         'damage_base': weapon['damage'],
-        'type': weapon['range'],
+        'two_handed': 'yes' if two_handed else 'no',
+        'skill': 'ranged combat' if weapon['range'] == 'missile' else 'close combat',
+    }
+
+
+def armor_row(armor):
+    """repeating_armor field values for an equipped armor or shield.
+
+    ac_bonus is the sheet's armor bonus over the unarmored 10 (so the sheet
+    computes armor_class = 10 + agility_modifier + ac_bonus itself).
+    """
+    is_shield = bool(armor.get('is_shield'))
+    ac_bonus = armor['ac_bonus_all'] if is_shield else armor['base_ac'] - 10
+    return {
+        'name': armor['name'],
+        'ac_bonus': ac_bonus,
+        'check_penalty': armor.get('check_penalty', 0),
+        'fumble_die': armor.get('fumble_die', ''),
+        'shield': 'yes' if is_shield else 'no',
+        'active': '1',
+        'quantity': '1',
     }
 
 
 def armor_vectors(armor):
-    """Return (piercing, slashing, bludgeoning) AC for a (non-shield) armor."""
+    """Return raw (piercing, slashing, bludgeoning) AC for a (non-shield) armor."""
     return (armor['ac_piercing'], armor['ac_slashing'], armor['ac_bludgeoning'])
+
+
+def capped_vectors(armor, agl_mod):
+    """Homebrew (P, S, B) for a body armor given the character's AGL modifier,
+    applying the armor's max_agl_mod cap."""
+    cap = agl_mod if armor.get('max_agl_mod') is None else min(agl_mod, armor['max_agl_mod'])
+    return (armor['ac_piercing'] + cap, armor['ac_slashing'] + cap, armor['ac_bludgeoning'] + cap)
 
 
 def armor_vector_string(p, s, b):
@@ -208,69 +244,158 @@ var ThraciaEquipment = (function () {
         return { p: parseInt(m[1], 10), s: parseInt(m[2], 10), b: parseInt(m[3], 10) };
     }
 
+    // --- repeating-section helpers (operate on the sheet's own rows) ---------
+    function collectRows(cid, section) {
+        var prefix = 'repeating_' + section + '_';
+        var rows = {};
+        findObjs({ type: 'attribute', characterid: cid }).forEach(function (a) {
+            var nm = a.get('name');
+            if (nm.indexOf(prefix) !== 0) return;
+            var rest = nm.slice(prefix.length);
+            var us = rest.indexOf('_');
+            if (us < 0) return;
+            var rowid = rest.slice(0, us), field = rest.slice(us + 1);
+            (rows[rowid] = rows[rowid] || {})[field] = a;
+        });
+        return rows;
+    }
+
+    function rowField(row, field, dflt) {
+        return row[field] ? row[field].get('current') : dflt;
+    }
+
+    function removeRow(row) { for (var k in row) { row[k].remove(); } }
+
+    function addRow(cid, section, fields) {
+        var id = generateRowID();
+        for (var k in fields) {
+            createObj('attribute', {
+                characterid: cid,
+                name: 'repeating_' + section + '_' + id + '_' + k,
+                current: String(fields[k])
+            });
+        }
+        return id;
+    }
+
+    function aglMod(cid) { return parseInt(getAttrVal(cid, 'agility_modifier', 0), 10) || 0; }
+
+    // Capture the unarmored speed once so armor speed penalties never compound.
+    function baseSpeed(cid) {
+        var b = getAttrVal(cid, 'thr_base_speed', '');
+        if (b === '' || b === null || b === undefined) {
+            b = parseInt(getAttrVal(cid, 'speed', 30), 10);
+            if (isNaN(b)) b = 30;
+            setAttr(cid, 'thr_base_speed', b);
+        }
+        return parseInt(b, 10) || 30;
+    }
+
+    // Recompute the homebrew layer (P/S/B vectors + speed) from the managed
+    // armor/shield rows. The sheet still owns the single armor_class.
+    function recomputeArmor(cid) {
+        var rows = collectRows(cid, 'armor');
+        var body = null, shieldBonus = 0;
+        for (var id in rows) {
+            var r = rows[id];
+            if (rowField(r, 'managed') !== 'thr') continue;
+            if (rowField(r, 'shield') === 'yes') {
+                shieldBonus += parseInt(rowField(r, 'ac_bonus', 0), 10) || 0;
+            } else {
+                body = findItem(rowField(r, 'name', ''));
+            }
+        }
+        var agl = aglMod(cid), p, s, b, speed = baseSpeed(cid);
+        if (body) {
+            var cap = (body.max_agl_mod === null || body.max_agl_mod === undefined)
+                ? agl : Math.min(agl, body.max_agl_mod);
+            p = body.ac_piercing + cap + shieldBonus;
+            s = body.ac_slashing + cap + shieldBonus;
+            b = body.ac_bludgeoning + cap + shieldBonus;
+            speed = baseSpeed(cid) + (body.speed_penalty || 0);
+        } else {
+            p = s = b = 10 + agl + shieldBonus;
+        }
+        writeVectors(cid, p, s, b);
+        setAttr(cid, 'speed', speed);
+        return { p: p, s: s, b: b, speed: speed };
+    }
+
     function equip(msg, name) {
         var item = findItem(name);
-        if (!item) { whisper(msg.who, 'No item named "' + name + '". Try !equip-list.'); return; }
+        if (!item) { whisper(msg.who, 'No item named "' + safe(name) + '". Try !equip-list.'); return; }
         var cid = charFromMsg(msg);
         if (!cid) { whisper(msg.who, 'Select a token that represents a character first.'); return; }
         var cname = (getObj('character', cid) || { get: function () { return 'character'; } }).get('name');
 
         if (isWeapon(item)) {
-            var row = generateRowID();
-            setAttr(cid, 'repeating_weapons_' + row + '_name', item.name);
-            setAttr(cid, 'repeating_weapons_' + row + '_damage', item.damage);
-            setAttr(cid, 'repeating_weapons_' + row + '_damage_base', item.damage);
-            setAttr(cid, 'repeating_weapons_' + row + '_type', item.range);
-            var erow = generateRowID();
-            setAttr(cid, 'repeating_equipment_' + erow + '_name', item.name);
-            setAttr(cid, 'repeating_equipment_' + erow + '_active', '1');
-            whisper(msg.who, '<b>' + cname + '</b> equipped <b>' + item.name + '</b> (' +
-                item.damage + ' ' + item.damage_type + ', ' + item.range + ').');
+            // Sheet rolls d16 initiative when two_handed='yes'; house rule extends
+            // that to size L/XL. Attack bonus + final damage are computed by the sheet.
+            var twoH = (item.two_handed || item.size === 'L' || item.size === 'XL') ? 'yes' : 'no';
+            var skill = item.range === 'missile' ? 'ranged combat' : 'close combat';
+            addRow(cid, 'weapons', {
+                name: item.name, damage_base: item.damage,
+                two_handed: twoH, skill: skill, managed: 'thr'
+            });
+            whisper(msg.who, '<b>' + safe(cname) + '</b> equipped <b>' + safe(item.name) + '</b> &mdash; ' +
+                item.damage + ' ' + item.damage_type + ', ' + skill +
+                (twoH === 'yes' ? ', two-handed (init d16)' : '') +
+                '. Crit: ' + safe(item.crit_note || 'standard') + '.');
             return;
         }
 
-        // Armor
-        if (item.is_shield) {
-            var cur = readVectors(cid);
-            if (!cur) {
-                whisper(msg.who, 'Equip body armor before a shield (no AC vectors set yet).');
-                return;
-            }
-            var bonus = item.ac_bonus_all || 0;
-            writeVectors(cid, cur.p + bonus, cur.s + bonus, cur.b + bonus);
-            var ac = parseInt(getAttrVal(cid, 'ac', cur.b), 10) || cur.b;
-            setAttr(cid, 'ac', ac + bonus);
-            whisper(msg.who, '<b>' + cname + '</b> raised <b>' + item.name + '</b> (+' + bonus + ' all vectors).');
-            return;
+        // Armor / shield: write the sheet's native row (it computes armor_class,
+        // check penalty, fumble die), then recompute the homebrew vectors + speed.
+        var wantShield = !!item.is_shield;
+        var rows = collectRows(cid, 'armor');
+        for (var id in rows) {       // replace the existing managed row of the same kind
+            var r = rows[id];
+            if (rowField(r, 'managed') !== 'thr') continue;
+            if ((rowField(r, 'shield') === 'yes') === wantShield) removeRow(r);
         }
-        writeVectors(cid, item.ac_piercing, item.ac_slashing, item.ac_bludgeoning);
-        setAttr(cid, 'ac', item.base_ac);
-        whisper(msg.who, '<b>' + cname + '</b> donned <b>' + item.name + '</b> (AC: P' +
-            item.ac_piercing + '/S' + item.ac_slashing + '/B' + item.ac_bludgeoning + ').');
+        addRow(cid, 'armor', {
+            name: item.name,
+            ac_bonus: wantShield ? (item.ac_bonus_all || 0) : (item.base_ac - 10),
+            check_penalty: item.check_penalty || 0,
+            fumble_die: item.fumble_die || '',
+            shield: wantShield ? 'yes' : 'no',
+            active: '1', quantity: '1', managed: 'thr'
+        });
+        var res = recomputeArmor(cid);
+        whisper(msg.who, '<b>' + safe(cname) + '</b> ' + (wantShield ? 'raised' : 'donned') + ' <b>' +
+            safe(item.name) + '</b> &mdash; AC P' + res.p + '/S' + res.s + '/B' + res.b +
+            ', speed ' + res.speed + ", check " + (item.check_penalty || 0) +
+            ', fumble ' + (item.fumble_die || '-') + '.');
     }
 
     function unequip(msg, name) {
         var cid = charFromMsg(msg);
         if (!cid) { whisper(msg.who, 'Select a token that represents a character first.'); return; }
-        var key = norm(name);
-        var attrs = findObjs({ type: 'attribute', characterid: cid });
-        var removedRows = {};
-        // find rowids whose _name matches in repeating_weapons / repeating_equipment
-        attrs.forEach(function (a) {
-            var nm = a.get('name');
-            var m = nm.match(/^(repeating_(?:weapons|equipment))_([^_]+)_name$/);
-            if (m && norm(a.get('current')) === key) {
-                removedRows[m[1] + '_' + m[2]] = true;
+        var key = norm(name), removed = 0, armorTouched = false;
+        ['weapons', 'armor'].forEach(function (section) {
+            var rows = collectRows(cid, section);
+            for (var id in rows) {
+                var r = rows[id];
+                if (rowField(r, 'managed') !== 'thr') continue;
+                if (norm(rowField(r, 'name', '')) === key) {
+                    removeRow(r); removed++;
+                    if (section === 'armor') armorTouched = true;
+                }
             }
         });
-        var count = 0;
-        attrs.forEach(function (a) {
-            var nm = a.get('name');
-            for (var prefix in removedRows) {
-                if (nm.indexOf(prefix + '_') === 0) { a.remove(); count++; break; }
-            }
-        });
-        whisper(msg.who, count ? 'Unequipped "' + name + '".' : 'No equipped item named "' + name + '".');
+        if (armorTouched) recomputeArmor(cid);
+        whisper(msg.who, removed
+            ? 'Unequipped "' + safe(name) + '"' + (armorTouched ? ' (AC recomputed).' : '.')
+            : 'No managed item named "' + safe(name) + '" to unequip.');
+    }
+
+    function showAC(msg, name) {
+        var cid = resolveChar(msg, name);
+        if (!cid) { whisper(msg.who, 'Select a token, or run: !ac &lt;character name&gt;'); return; }
+        var res = recomputeArmor(cid);
+        var cname = (getObj('character', cid) || { get: function () { return 'character'; } }).get('name');
+        whisper(msg.who, '<b>' + safe(cname) + '</b> AC: P' + res.p + '/S' + res.s + '/B' + res.b +
+            " (speed " + res.speed + "').");
     }
 
     function lookupArmor(msg, name) {
@@ -371,6 +496,7 @@ var ThraciaEquipment = (function () {
             case 'armor': lookupArmor(msg, arg); break;
             case 'weapon': lookupWeapon(msg, arg); break;
             case 'crit': lookupCrit(msg, arg); break;
+            case 'ac': showAC(msg, arg); break;
             case 'equip-list': listAll(msg); break;
             case 'equip-diag': diag(msg, arg); break;
         }

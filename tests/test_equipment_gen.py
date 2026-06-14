@@ -6,8 +6,10 @@ import pytest
 from equipment_gen import (
     load_catalog,
     validate_catalog,
-    weapon_attrs,
+    weapon_row,
+    armor_row,
     armor_vectors,
+    capped_vectors,
     armor_vector_string,
     apply_shield,
     build_script,
@@ -79,20 +81,45 @@ class TestValidateCatalog:
         assert validate_catalog(load_catalog()) == []
 
 
-class TestWeaponAttrs:
-    def test_melee_weapon_maps_fields(self):
-        attrs = weapon_attrs(VALID_CATALOG["weapons"][0])
-        assert attrs == {
+class TestWeaponRow:
+    def test_melee_weapon_maps_sheet_fields(self):
+        row = weapon_row(VALID_CATALOG["weapons"][0])
+        assert row == {
             "name": "Spear",
-            "damage": "1d8",
             "damage_base": "1d8",
-            "type": "melee",
+            "two_handed": "no",
+            "skill": "close combat",
         }
 
-    def test_missile_weapon_type_is_missile(self):
-        attrs = weapon_attrs(VALID_CATALOG["weapons"][1])
-        assert attrs["type"] == "missile"
-        assert attrs["damage"] == "1d6"
+    def test_missile_weapon_uses_ranged_skill(self):
+        row = weapon_row(VALID_CATALOG["weapons"][1])
+        assert row["skill"] == "ranged combat"
+        assert row["damage_base"] == "1d6"
+
+    def test_explicit_two_handed_flag(self):
+        row = weapon_row({"name": "Maul", "damage": "1d10", "damage_type": "bludgeoning",
+                          "size": "L", "range": "melee", "two_handed": True})
+        assert row["two_handed"] == "yes"
+
+    def test_large_size_triggers_two_handed_for_d16(self):
+        # Lance is XL but not flagged two_handed; house rule -> d16 init anyway
+        row = weapon_row({"name": "Lance", "damage": "1d10", "damage_type": "piercing",
+                          "size": "XL", "range": "melee"})
+        assert row["two_handed"] == "yes"
+
+
+class TestArmorRow:
+    def test_body_armor_ac_bonus_is_over_ten(self):
+        row = armor_row(VALID_CATALOG["armor"][0])  # Linothorax base_ac 12
+        assert row["ac_bonus"] == 2
+        assert row["shield"] == "no"
+        assert row["active"] == "1"
+        assert row["fumble_die"] == "d6"
+
+    def test_shield_uses_bonus_all(self):
+        row = armor_row(VALID_CATALOG["armor"][1])  # Small shield +1
+        assert row["ac_bonus"] == 1
+        assert row["shield"] == "yes"
 
 
 class TestArmorVectors:
@@ -100,6 +127,16 @@ class TestArmorVectors:
         armor = VALID_CATALOG["armor"][0]
         # armor_vectors returns (piercing, slashing, bludgeoning)
         assert armor_vectors(armor) == (12, 12, 12)
+
+    def test_capped_vectors_adds_agility(self):
+        # max_agl_mod absent -> full agility added
+        armor = {"ac_piercing": 12, "ac_slashing": 12, "ac_bludgeoning": 12}
+        assert capped_vectors(armor, 2) == (14, 14, 14)
+
+    def test_capped_vectors_respects_cap(self):
+        # heavy armor caps agility contribution
+        armor = {"ac_piercing": 21, "ac_slashing": 22, "ac_bludgeoning": 18, "max_agl_mod": 0}
+        assert capped_vectors(armor, 3) == (21, 22, 18)
 
     def test_vector_string_format(self):
         assert armor_vector_string(14, 13, 12) == "AC: P14/S13/B12"
@@ -115,7 +152,7 @@ class TestArmorVectors:
 class TestBuildScript:
     def test_contains_each_command(self):
         js = build_script(VALID_CATALOG)
-        for cmd in ("equip", "unequip", "armor", "weapon", "crit", "equip-list", "equip-diag"):
+        for cmd in ("equip", "unequip", "armor", "weapon", "crit", "ac", "equip-list", "equip-diag"):
             assert "'" + cmd + "'" in js or "case '" + cmd + "'" in js
 
     def test_embedded_catalog_parses(self):
@@ -130,10 +167,18 @@ class TestBuildScript:
         js = build_script(VALID_CATALOG)
         assert "on('chat:message'" in js
 
-    def test_writes_repeating_weapons(self):
+    def test_writes_native_repeating_rows(self):
         js = build_script(VALID_CATALOG)
-        assert "repeating_weapons_" in js
+        # rows are built dynamically: 'repeating_' + section + '_' + id + '_' + field
+        assert "'repeating_' + section + '_'" in js
+        assert "addRow(cid, 'weapons'" in js
+        assert "addRow(cid, 'armor'" in js
         assert "generateRowID()" in js
+
+    def test_recomputes_homebrew_armor_layer(self):
+        js = build_script(VALID_CATALOG)
+        assert "recomputeArmor" in js
+        assert "agility_modifier" in js
 
 
 class TestBuildHandout:
