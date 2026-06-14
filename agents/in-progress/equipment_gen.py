@@ -138,6 +138,9 @@ var ThraciaEquipment = (function () {
     function isWeapon(item) { return item && item.range !== undefined && item.damage !== undefined; }
 
     function whisper(to, text) {
+        // msg.who comes through as e.g. "Christian L. (GM)"; the " (GM)" suffix
+        // breaks /w target lookup, so strip it before whispering.
+        to = String(to || 'gm').replace(/\s*\(GM\)$/, '');
         sendChat('Equipment', '/w "' + to + '" ' + text, null, { noarchive: true });
     }
 
