@@ -9,8 +9,9 @@
 #   !weapon <name>     whisper a weapon's damage, type, and homebrew property
 #   !crit <weapon>     whisper the weapon's crit effect
 #   !equip-list        whisper the catalog index
-#   !equip-diag        dump the selected sheet's attributes (to find real field
-#                      names / verify which fields the API can set)
+#   !equip-diag [name] dump a sheet's attributes (by character name, or the
+#                      selected token) to find real field names / verify which
+#                      fields the API can set
 #
 # This mirrors encounter_gen.py: read staged data -> validate -> emit a ready
 # .js. No Claude call — the catalog is static reference data.
@@ -150,6 +151,20 @@ var ThraciaEquipment = (function () {
         if (!tok) return null;
         var cid = tok.get('represents');
         return cid || null;
+    }
+
+    function charByName(name) {
+        var key = norm(name);
+        var chars = findObjs({ type: 'character' });
+        for (var i = 0; i < chars.length; i++) {
+            if (norm(chars[i].get('name')) === key) return chars[i].id;
+        }
+        return null;
+    }
+
+    // Resolve a character from an explicit name (if given) or the selected token.
+    function resolveChar(msg, name) {
+        return name ? charByName(name) : charFromMsg(msg);
     }
 
     function getAttrObj(cid, name) {
@@ -296,14 +311,26 @@ var ThraciaEquipment = (function () {
 
     // Diagnostic: discover this sheet's real attribute names and which fields
     // the API can actually set (vs. fields the sheet recomputes/clobbers).
-    //   !equip-diag        dump all attrs to API console, whisper the relevant subset
-    //   !equip-diag probe  write sentinel values (99 / 1d99) to candidate fields
+    //   !equip-diag [name]        dump all attrs to API console + whisper subset
+    //   !equip-diag probe [name]  write sentinel values (99 / 1d99) to candidates
+    // [name] targets a character by name; omit it to use the selected token.
     function diag(msg, arg) {
-        var cid = charFromMsg(msg);
-        if (!cid) { whisper(msg.who, 'Select a token that represents a character first.'); return; }
+        var probe = false;
+        var name = String(arg || '').trim();
+        var parts = name.split(/\s+/).filter(function (p) { return p.length; });
+        if (parts.length && parts[0].toLowerCase() === 'probe') {
+            probe = true;
+            name = parts.slice(1).join(' ');
+        }
+        var cid = resolveChar(msg, name);
+        if (!cid) {
+            whisper(msg.who, name ? ('No character named "' + name + '".')
+                : 'Select a token that represents a character, or run: !equip-diag &lt;character name&gt;');
+            return;
+        }
         var attrs = findObjs({ type: 'attribute', characterid: cid });
 
-        if (norm(arg) === 'probe') {
+        if (probe) {
             var sentinels = {
                 armor_class: '99', ac: '99', speed: '99', speed_mod: '99',
                 initiative: '1d99', initiative_overwritten: '1d99', initiative_mod: '99'
